@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAQON | Plataforma Comercial V1.5.12</title>
+<link rel="stylesheet" href="estilo.css?v=1513e">
+<link rel="stylesheet" href="maqon-propostas-premium.css?v=1512">
+</head>
+<body>
+<header class="hero" aria-label="MAQON — Inteligência em equipamentos pesados"></header>
+
+<aside>
+  <div class="side-title">
+    <div class="user-avatar">●</div><b>Renan Rabelo</b><small>Administrador</small><span class="online">● Online</span>
+  </div>
+  <nav>
+    <button class="nav active" data-view="dashboard">⌂ <span>Visão Geral</span></button>
+    <button class="nav" data-view="leads">♟ <span>Leads / Clientes</span></button>
+    <button class="nav" data-view="equipamentos">♜ <span>Equipamentos</span></button>
+    <button class="nav" data-view="comparativos">▥ <span>Comparativos</span></button>
+    <button class="nav" data-view="analises">⌁ <span>Análises Técnicas</span></button>
+    <button class="nav" data-view="propostas">▤ <span>Propostas</span></button>
+    <button class="nav" data-view="financeiro">$ <span>Financeiro</span></button>
+    <button class="nav" data-view="manutencao">⌕ <span>Manutenção</span></button>
+    <button class="nav" data-view="relatorios">▧ <span>Relatórios</span></button>
+    <button class="nav" data-href="maqon-alertas.html">⚠ <span>Central de Alertas</span></button>
+    <button class="nav nav-sales" data-view="contratar">★ <span>Contratar MAQON</span></button>
+    <button class="nav" data-view="integracoes">⌘ <span>Integrações</span></button>
+    <button class="nav" data-view="config">⚙ <span>Configurações</span></button>
+  </nav>
+</aside>
+
+<main>
+<div class="platform-actions"><button id="platformBack" type="button">← Voltar</button><button id="platformHome" type="button">⌂ Visão Geral</button></div>
+<section id="dashboard" class="view active">
+  <div class="toolbar">
+    <label>▣ Período<select><option>Últimos 30 dias</option></select></label>
+    <label>◉ Status<select><option>Todos</option></select></label>
+    <label>◆ Origem<select><option>Todos</option></select></label>
+    <label>♟ Responsável<select><option>Todos</option></select></label>
+    <button class="primary" id="newLead">＋ Novo Lead</button>
+  </div>
+
+  <div class="cards">
+    <article><span class="kpi-title"><i>♟</i>Total de Leads</span><strong id="kpiTotal">0</strong><em class="live-label">Dados reais</em></article>
+    <article><span class="kpi-title"><i>▤</i>Novos Leads</span><strong id="kpiNew">0</strong><em class="live-label">Dados reais</em></article>
+    <article><span class="kpi-title"><i>◉</i>Em Atendimento</span><strong id="kpiService">0</strong><em class="live-label">Dados reais</em></article>
+    <article><span class="kpi-title"><i>➤</i>Propostas Enviadas</span><strong id="kpiProposal">0</strong><em class="live-label">Dados reais</em></article>
+    <article><span class="kpi-title"><i>◆</i>Clientes Convertidos</span><strong id="kpiClient">0</strong><em class="live-label">Dados reais</em></article>
+    <article><span class="kpi-title"><i>%</i>Taxa de Conversão</span><strong id="kpiConversion">0,0%</strong><em class="live-label">Dados reais</em></article>
+  </div>
+
+  <div class="grid">
+    <article class="panel"><h2>Funil Comercial</h2>
+      <div class="funnel">
+        <div><span>♟ Leads</span><b>248</b><small>100%</small></div>
+        <div><span>◉ Em Atendimento</span><b>86</b><small>35%</small></div>
+        <div><span>▤ Propostas</span><b>46</b><small>19%</small></div>
+        <div><span>◆ Negociação</span><b>32</b><small>13%</small></div>
+        <div><span>✓ Clientes</span><b>27</b><small>11%</small></div>
+      </div>
+    </article>
+    <article class="panel evolution"><h2>Evolução de Leads</h2><div id="evolutionEmpty" style="padding:42px 16px;text-align:center;opacity:.72">O histórico será formado automaticamente com os novos registros.</div></article>
+    <article class="panel origin"><h2>Origem dos Leads</h2>
+      <div class="origin-wrap"><div class="donut"><b>0</b><span>Leads</span></div>
+      <div class="legend" id="originLegend"><p>Sem leads cadastrados.</p></div></div>
+    </article>
+  </div>
+
+  <div class="lower">
+    <article class="panel table"><h2>Leads Recentes <button class="link" data-go="leads">Ver todos →</button></h2>
+      <table><thead><tr><th>#</th><th>Data</th><th>Nome</th><th>Empresa</th><th>Telefone</th><th>Equipamento</th><th>Status</th><th>Fase</th><th>Origem</th><th>Ações</th></tr></thead><tbody id="leadRows"></tbody></table>
+    </article>
+    <article class="panel quick-panel"><h2>Ações Rápidas</h2><div class="quick">
+      <button id="quickLead">✦<b>Novo Lead</b></button><button>▤<b>Gerar Proposta</b></button>
+      <button>⌁<b>Nova Análise</b><small>de Equipamento</small></button><button>▥<b>Comparativo</b><small>de Máquinas</small></button>
+      <button>▣<b>Calculadora</b><small>de Custo/Hora</small></button><button>▥<b>Relatório</b><small>Personalizado</small></button>
+    </div></article>
+  </div>
+
+  <div class="services">
+    <button>▥ <span><b>COMPRA</b><small>Melhor decisão</small></span></button>
+    <button>▦ <span><b>VENDA</b><small>Mais oportunidades</small></span></button>
+    <button>▦ <span><b>LOCAÇÃO</b><small>Mais produtividade</small></span></button>
+    <button>⌕ <span><b>MANUTENÇÃO</b><small>Mais disponibilidade</small></span></button>
+    <button>⌁ <span><b>CONSULTORIA</b><small>Soluções sob medida</small></span></button>
+    <button>◆ <span><b>PROJETOS ESPECIAIS</b><small>Resultados extraordinários</small></span></button>
+  </div>
+</section>
+
+<section id="leads" class="view"><h1>Leads / Clientes</h1><article class="panel"><input id="search" placeholder="Pesquisar lead..."><table><thead><tr><th>Nome</th><th>Empresa</th><th>Telefone</th><th>Interesse</th><th>Status</th><th>Fase</th><th>Origem</th><th>Ações</th></tr></thead><tbody id="allLeads"></tbody></table></article></section>
+<section id="equipamentos" class="view"><h1>Equipamentos</h1><article class="panel"><div style="display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap"><input id="equipmentSearch" placeholder="Pesquisar equipamento..." style="min-width:280px"><button class="primary" id="newEquipment">＋ Novo Equipamento</button></div><table><thead><tr><th>Categoria</th><th>Fabricante</th><th>Modelo</th><th>Ano</th><th>Horímetro</th><th>Valor</th><th>Consumo</th><th>Manutenção</th><th>Disponibilidade</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="equipmentRows"></tbody></table></article></section>
+<section id="comparativos" class="view"><h1>Comparativos</h1><article class="panel"><h2>Comparativo de Máquinas</h2><p>Selecione até 3 equipamentos cadastrados para comparar lado a lado.</p><div style="display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:12px;margin:18px 0"><label>Máquina 1<select id="compare1"></select></label><label>Máquina 2<select id="compare2"></select></label><label>Máquina 3<select id="compare3"></select></label></div><div style="overflow:auto"><table><thead><tr><th>Indicador</th><th id="compareHead1">Máquina 1</th><th id="compareHead2">Máquina 2</th><th id="compareHead3">Máquina 3</th></tr></thead><tbody id="compareRows"></tbody></table></div><p id="compareSummary" style="margin-top:16px"></p></article></section>
+<section id="analises" class="view"><h1>Análises Técnicas</h1><article class="panel"><h2>MAQON Engine — Análise de Equipamento</h2><p>Selecione um equipamento cadastrado para gerar os indicadores técnicos automaticamente.</p><div style="display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin:18px 0"><label style="min-width:320px;flex:1">Equipamento<select id="analysisEquipment"></select></label><button class="primary" id="runAnalysis" type="button">⌁ Gerar Análise</button></div><div class="cards compact"><article><span>Custo Operacional / h</span><strong id="analysisCost">—</strong></article><article><span>Disponibilidade</span><strong id="analysisAvailability">—</strong></article><article><span>Score MAQON</span><strong id="analysisScore">—</strong></article></div><div style="overflow:auto;margin-top:18px"><table><tbody id="analysisRows"></tbody></table></div><p id="analysisSummary" style="margin-top:16px"></p></article></section>
+<section id="manutencao" class="view"><h1>Manutenção</h1><article class="panel"><h2>Planejamento de Manutenção</h2><p>Controle preventivo, corretivo e preditivo vinculado aos equipamentos cadastrados.</p><div class="modulecards commercial-grid"><article>🛠<b>Preventiva</b><span>Planeje revisões e inspeções periódicas.</span></article><article>⚙<b>Corretiva</b><span>Registre intervenções e pendências.</span></article><article>📈<b>Preditiva</b><span>Acompanhe disponibilidade e indicadores.</span></article><article>⚠<b>Alertas</b><span><button class="primary module-action" onclick="location.href='maqon-alertas.html'">Abrir Central de Alertas</button></span></article></div></article></section>
+<section id="integracoes" class="view">
+  <h1>Integrações</h1>
+  <article class="panel social-hub">
+    <div class="social-head"><div><h2>Central de Integrações Sociais</h2><p>Conecte os canais comerciais da MAQON, abra atendimentos e registre a origem de cada lead no funil.</p></div><span class="social-live">● Central ativa</span></div>
+    <div class="integration-grid social-cards">
+      <div class="panel social-card" data-channel="WhatsApp"><div class="social-icon">WA</div><b>WhatsApp Business</b><p id="waLabel">(98) 98421-8479</p><span class="integration-status connected">● Ativo por link direto</span><div class="integration-actions"><a id="waOpen" class="primary integration-link" target="_blank" rel="noopener">Abrir WhatsApp</a><button type="button" data-social-lead="WhatsApp">＋ Lead</button></div></div>
+      <div class="panel social-card" data-channel="Instagram"><div class="social-icon">IG</div><b>Instagram</b><p id="igLabel">Perfil ainda não configurado</p><span id="igStatus" class="integration-status">Configurar perfil</span><div class="integration-actions"><a id="igOpen" class="primary integration-link disabled-link" target="_blank" rel="noopener">Abrir Instagram</a><button type="button" data-meta-connect>Conectar API</button><button type="button" data-social-lead="Instagram">＋ Lead</button></div></div>
+      <div class="panel social-card" data-channel="Facebook"><div class="social-icon">FB</div><b>Facebook</b><p id="fbLabel">Página ainda não configurada</p><span id="fbStatus" class="integration-status">Configurar página</span><div class="integration-actions"><a id="fbOpen" class="primary integration-link disabled-link" target="_blank" rel="noopener">Abrir Facebook</a><button type="button" data-meta-connect>Conectar API</button><button type="button" data-social-lead="Facebook">＋ Lead</button></div></div>
+      <div class="panel social-card" data-channel="LinkedIn"><div class="social-icon">IN</div><b>LinkedIn</b><p id="liLabel">Página/perfil ainda não configurado</p><span id="liStatus" class="integration-status">Configurar LinkedIn</span><div class="integration-actions"><a id="liOpen" class="primary integration-link disabled-link" target="_blank" rel="noopener">Abrir LinkedIn</a><button type="button" data-social-lead="LinkedIn">＋ Lead</button></div></div>
+      <div class="panel social-card" data-channel="Email"><div class="social-icon">@</div><b>E-mail MAQON</b><p>maqonapp@gmail.com</p><span class="integration-status connected">● Ativo</span><div class="integration-actions"><a class="primary integration-link" href="mailto:maqonapp@gmail.com">Abrir e-mail</a><button type="button" data-social-lead="E-mail">＋ Lead</button></div></div>
+      <div class="panel social-card" data-channel="HubSpot"><div class="social-icon">HS</div><b>HubSpot</b><p id="hsLabel">Portal ainda não configurado</p><span id="hsStatus" class="integration-status">Configurar portal</span><div class="integration-actions"><a id="hsOpen" class="primary integration-link disabled-link" target="_blank" rel="noopener">Abrir HubSpot</a><button type="button" data-social-lead="HubSpot">＋ Lead</button></div></div>
+    </div>
+  </article>
+
+  <article class="panel social-settings">
+    <div class="social-head"><div><h2>Configuração dos canais</h2><p>Salve os endereços oficiais uma única vez. Os dados ficam no navegador e podem ser alterados quando necessário.</p></div><button type="button" class="primary" id="saveSocialSettings">Salvar integrações</button></div>
+    <div class="social-form-grid">
+      <label>WhatsApp Business<input id="socialWhatsapp" inputmode="tel" placeholder="5598984218479"></label>
+      <label>Instagram<input id="socialInstagram" type="url" placeholder="https://instagram.com/seu_perfil"></label>
+      <label>Facebook<input id="socialFacebook" type="url" placeholder="https://facebook.com/sua_pagina"></label>
+      <label>LinkedIn<input id="socialLinkedin" type="url" placeholder="https://linkedin.com/company/... ou /in/..."></label>
+      <label>HubSpot<input id="socialHubspot" type="url" placeholder="https://app.hubspot.com/..."></label>
+      <label>Mensagem inicial do WhatsApp<input id="socialWhatsappMessage" placeholder="Olá! Vim pela MAQON e gostaria de atendimento."></label>
+      <label>Backend seguro MAQON (Meta API)<input id="socialMetaApiBase" type="url" placeholder="https://seu-backend.exemplo.com"></label>
+      <label>Chave local do painel MAQON<input id="socialMetaApiKey" type="password" autocomplete="off" placeholder="A mesma MAQON_ADMIN_TOKEN do servidor"></label>
+    </div>
+    <div class="social-note"><b>Camada segura:</b> Instagram/Facebook usam OAuth pelo backend MAQON. App Secret e tokens ficam somente no servidor, criptografados, e nunca são gravados no <code>app.js</code>.</div>
+  </article>
+
+  <article class="panel meta-api-panel">
+    <div class="social-head"><div><h2>Meta API — Instagram + Facebook</h2><p>Autorize a conta empresarial, selecione a Página e sincronize Leads Ads diretamente com o CRM MAQON.</p></div><span id="metaApiStatus" class="integration-status">Backend não configurado</span></div>
+    <div class="meta-api-grid">
+      <div><label>Página Meta conectada<select id="metaPageSelect"><option value="">Aguardando conexão...</option></select></label></div>
+      <div class="meta-api-actions"><button type="button" class="primary" id="metaConnectBtn">Conectar Meta</button><button type="button" id="metaTestBtn">Testar API</button><button type="button" id="metaSavePageBtn">Usar página</button><button type="button" class="primary" id="metaSyncBtn">Sincronizar Leads</button></div>
+    </div>
+    <div id="metaApiMessage" class="meta-api-message">Informe a URL do backend seguro acima e salve as integrações.</div>
+  </article>
+
+  <article class="panel meta-api-panel wa-ai-panel">
+    <div class="social-head"><div><h2>IA de Atendimento — WhatsApp Business</h2><p>Atendimento inicial automatizado, qualificação de leads e encaminhamento para consultor humano.</p></div><span id="waAiStatus" class="integration-status">Aguardando backend</span></div>
+    <div class="wa-ai-status-grid">
+      <div><span>Cloud API</span><strong id="waCloudState">—</strong></div>
+      <div><span>OpenAI</span><strong id="waOpenAiState">—</strong></div>
+      <div><span>Atendimento IA</span><strong id="waAutomationState">DESLIGADO</strong></div>
+      <div><span>Leads WhatsApp</span><strong id="waLeadCount">0</strong></div>
+      <div><span>Conversas</span><strong id="waConversationCount">0</strong></div>
+      <div><span>Fila humana</span><strong id="waHandoffCount">0</strong></div>
+    </div>
+    <div class="meta-api-actions wa-ai-actions"><button type="button" id="waAiRefreshBtn">Atualizar status</button><button type="button" class="primary" id="waAiToggleBtn">Ativar IA</button><button type="button" id="waSyncCrmBtn">Sincronizar WhatsApp → CRM</button></div>
+    <div class="wa-ai-preview"><label>Teste seguro da IA<input id="waAiPreviewInput" placeholder="Ex.: Preciso comparar uma retroescavadeira para compra."></label><button type="button" id="waAiPreviewBtn">Testar resposta</button></div>
+    <div id="waAiMessage" class="meta-api-message">A IA vem desligada por padrão. Teste primeiro e só ative após configurar Cloud API + OpenAI no backend.</div>
+    <div class="wa-conversation-list"><h3>Últimos atendimentos</h3><div id="waConversationList"><p class="muted">Nenhuma conversa sincronizada ainda.</p></div></div>
+  </article>
+
+  <article class="panel social-origin-panel"><h2>Leads por canal social</h2><div class="social-origin-grid"><div><span>WhatsApp</span><strong id="socialCountWhatsapp">0</strong></div><div><span>Instagram</span><strong id="socialCountInstagram">0</strong></div><div><span>Facebook</span><strong id="socialCountFacebook">0</strong></div><div><span>LinkedIn</span><strong id="socialCountLinkedin">0</strong></div><div><span>E-mail</span><strong id="socialCountEmail">0</strong></div><div><span>HubSpot</span><strong id="socialCountHubspot">0</strong></div></div></article>
+</section>
+<section id="propostas" class="view"><h1>Propostas</h1><article class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><h2>Gestão de Propostas Comerciais</h2><p><strong id="proposalCount">0</strong> propostas cadastradas • <strong id="proposalSentCount">0</strong> enviadas</p></div><button class="primary" id="newProposal">＋ Nova Proposta</button></div><input id="proposalSearch" placeholder="Pesquisar proposta..." style="min-width:280px;margin:14px 0"><div style="overflow:auto"><table><thead><tr><th>#</th><th>Cliente</th><th>Empresa</th><th>Equipamento</th><th>Modalidade</th><th>Valor</th><th>Validade</th><th>Status</th><th>Ações</th></tr></thead><tbody id="proposalRows"></tbody></table></div></article></section>
+<section id="financeiro" class="view"><h1>Financeiro</h1><article class="panel"><h2>Pipeline Comercial</h2><p>Valores calculados a partir das propostas cadastradas na plataforma.</p><div class="cards compact"><article><span>Valor total</span><strong id="financePipeline">R$ 0,00</strong></article><article><span>Propostas</span><strong id="financeProposalCount">0</strong></article><article><span>Aprovadas</span><strong id="financeApprovedCount">0</strong></article></div></article></section>
+<section id="relatorios" class="view"><h1>Relatórios</h1><article class="panel"><h2>Central de Relatórios</h2><p>Acesse os dados consolidados da operação e utilize a impressão do navegador para gerar PDF quando necessário.</p><div class="modulecards commercial-grid"><article>▥<b>Executivo</b><span>Indicadores gerais e funil comercial.</span><button class="primary module-action" data-report-view="dashboard">Abrir</button></article><article>⌁<b>Técnico</b><span>Análises de equipamentos cadastrados.</span><button class="primary module-action" data-report-view="analises">Abrir</button></article><article>▤<b>Comercial</b><span>Propostas e pipeline de vendas.</span><button class="primary module-action" data-report-view="propostas">Abrir</button></article><article>🖨<b>Exportar</b><span>Imprima a tela atual ou salve em PDF.</span><button class="primary module-action" onclick="window.print()">Imprimir / PDF</button></article></div></article></section>
+<section id="contratar" class="view sales-view">
+  <div class="sales-hero">
+    <div class="sales-copy">
+      <span class="sales-kicker">MAQON • PLATAFORMA PARA EQUIPAMENTOS PESADOS</span>
+      <h1>Transforme dados de máquinas em decisões comerciais e operacionais melhores.</h1>
+      <p>Centralize leads, equipamentos, análises técnicas, comparativos, propostas e indicadores em uma única plataforma, com acesso pelo computador e celular.</p>
+      <div class="sales-actions">
+        <a class="sales-cta primary" target="_blank" rel="noopener" href="https://wa.me/5598984218479?text=Ol%C3%A1%21%20Quero%20conhecer%20e%20contratar%20a%20plataforma%20MAQON.">Quero contratar a MAQON</a>
+        <a class="sales-secondary" target="_blank" rel="noopener" href="https://wa.me/5598984218479?text=Ol%C3%A1%21%20Gostaria%20de%20agendar%20uma%20demonstra%C3%A7%C3%A3o%20da%20plataforma%20MAQON.">Agendar demonstração</a>
+      </div>
+      <div class="sales-contact">WhatsApp: <b>(98) 98421-8479</b> &nbsp;•&nbsp; E-mail: <b>maqonapp@gmail.com</b></div>
+    </div>
+    <div class="sales-seal"><span>MAQON</span><b>Compare.<br>Calcule.<br>Decida.</b><small>Desktop + Mobile</small></div>
+  </div>
+
+  <div class="sales-grid">
+    <article class="sales-card"><span>01</span><h2>CRM e Funil Comercial</h2><p>Organize leads, origem, responsável, status e avanço comercial em um único fluxo.</p></article>
+    <article class="sales-card"><span>02</span><h2>Gestão de Equipamentos</h2><p>Cadastre máquinas e acompanhe fabricante, modelo, ano, horímetro, valor, consumo, manutenção e disponibilidade.</p></article>
+    <article class="sales-card"><span>03</span><h2>Comparativos e Análises</h2><p>Compare equipamentos lado a lado e gere indicadores técnicos para apoiar compra, venda, locação e operação.</p></article>
+    <article class="sales-card"><span>04</span><h2>Propostas e Pipeline</h2><p>Estruture propostas comerciais e acompanhe o valor do pipeline diretamente na plataforma.</p></article>
+    <article class="sales-card"><span>05</span><h2>Relatórios e Indicadores</h2><p>Visualize dados comerciais e técnicos para apoiar decisões, reuniões e acompanhamento de resultados.</p></article>
+    <article class="sales-card"><span>06</span><h2>Integrações</h2><p>Conecte canais comerciais e utilize a integração já preparada com HubSpot, além da evolução para WhatsApp e Meta.</p></article>
+  </div>
+
+  <article class="sales-offer">
+    <div>
+      <span class="sales-kicker">CONDIÇÃO COMERCIAL</span>
+      <h2>Contratação sob proposta comercial</h2>
+      <p>A configuração pode ser ajustada ao porte da operação, quantidade de usuários e nível de implantação necessário. Solicite a proposta para receber a condição adequada à sua empresa.</p>
+    </div>
+    <a class="sales-cta primary" target="_blank" rel="noopener" href="https://wa.me/5598984218479?text=Ol%C3%A1%21%20Quero%20receber%20uma%20proposta%20comercial%20da%20MAQON.">Solicitar proposta comercial</a>
+  </article>
+
+  <div class="sales-steps">
+    <article><b>1</b><h3>Demonstração</h3><p>Apresentamos a plataforma e entendemos sua necessidade.</p></article>
+    <article><b>2</b><h3>Proposta</h3><p>Definimos escopo, usuários e condição comercial.</p></article>
+    <article><b>3</b><h3>Ativação</h3><p>Configuramos o ambiente e iniciamos o uso da MAQON.</p></article>
+  </div>
+</section>
+
+<section id="config" class="view"><h1>Configurações</h1><article class="panel"><h2>Dados da plataforma</h2><p><b>Produto:</b> MAQON — Consultoria em Equipamentos Pesados</p><p><b>Contato oficial:</b> maqonapp@gmail.com</p><p><b>Versão:</b> V1.5.12 Formulário de Propostas Premium</p><p><b>Armazenamento atual:</b> dados operacionais salvos no navegador deste dispositivo.</p><p><b>Integrações:</b> credenciais externas não ficam expostas nesta página.</p><hr style="border-color:#31434b"><p>Antes da venda em escala/multiusuário, a próxima evolução técnica é autenticação e banco de dados em nuvem.</p></article></section>
+</main>
+
+<footer><b>MAQON</b><span class="foot-left">CONSULTORIA EM EQUIPAMENTOS PESADOS　|　✉ maqonapp@gmail.com　|　PLANEJAMENTO　|　ANÁLISE　|　CUSTO-BENEFÍCIO　|　DISPONIBILIDADE　|　PRODUTIVIDADE　|　SEGURANÇA</span><span class="foot-right">Máquinas em movimento. Resultados para você.　 <strong>V1.5.12</strong>　● Online</span></footer>
+
+<dialog id="leadDialog" class="lead-dialog"><form id="leadForm"><h2 id="leadDialogTitle">Novo Lead</h2>
+<div class="lead-grid">
+<label class="lead-field"><span>Nome do cliente *</span><input id="name" placeholder="Nome do cliente *" required></label>
+<label class="lead-field"><span>Empresa</span><input id="company" placeholder="Empresa"></label>
+<label class="lead-field"><span>WhatsApp / Telefone</span><input id="phone" placeholder="WhatsApp / Telefone"></label>
+<label class="lead-field"><span>E-mail</span><input id="leadEmail" type="email" placeholder="E-mail"></label>
+<label class="lead-field"><span>Cidade</span><input id="leadCity" placeholder="Cidade"></label>
+<label class="lead-field"><span>Estado / UF</span><input id="leadUF" placeholder="Estado / UF" maxlength="2"></label>
+<label class="lead-field"><span>Equipamento / Interesse</span><select id="interest"><option>Escavadeira</option><option>Munck</option><option>Motoniveladora</option><option>Retroescavadeira</option><option>Caminhão Basculante</option><option>Caminhão Pipa</option><option>Pá Carregadeira</option><option>Guindaste</option><option>Trator de Esteiras</option><option>Outro</option></select></label>
+<label class="lead-field"><span>Marca / Modelo</span><input id="leadBrandModel" placeholder="Marca / Modelo do equipamento"></label>
+<label class="lead-field"><span>Modalidade</span><select id="leadMode"><option>Compra</option><option>Locação</option><option>Venda</option><option>Consultoria</option><option>Manutenção</option><option>Projeto Especial</option></select></label>
+<label class="lead-field"><span>Orçamento / valor estimado (R$)</span><input id="leadBudget" type="number" min="0" step="0.01" placeholder="Orçamento / valor estimado (R$)"></label>
+<label class="lead-field"><span>Status</span><select id="leadStatus"><option>Novo Lead</option><option>Em Atendimento</option><option>Proposta Enviada</option><option>Negociação</option><option>Cliente</option></select></label>
+<label class="lead-field"><span>Fase comercial</span><select id="leadPhase"><option>Qualificação</option><option>Diagnóstico</option><option>Proposta</option><option>Negociação</option><option>Fechado</option></select></label>
+<label class="lead-field"><span>Responsável</span><select id="leadOwner"><option>Renan</option><option>Equipe Comercial</option><option>Não definido</option></select></label>
+<label class="lead-field"><span>Origem do lead</span><select id="leadOrigin"><option>Manual</option><option>Diagnóstico MAQON</option><option>Site</option><option>WhatsApp</option><option>Instagram</option><option>Facebook</option><option>Meta Lead Ads</option><option>LinkedIn</option><option>E-mail</option><option>HubSpot</option><option>Indicação</option><option>Outro</option></select></label>
+<label class="lead-field lead-field-wide"><span>Necessidade do cliente / aplicação</span><textarea id="leadNeed" rows="3" placeholder="Necessidade do cliente / aplicação"></textarea></label>
+<label class="lead-field lead-field-wide"><span>Observações comerciais</span><textarea id="leadNotes" rows="3" placeholder="Observações comerciais"></textarea></label>
+</div><div class="lead-actions"><button type="button" id="cancelLead">Cancelar</button><button class="primary" id="save" type="submit">Salvar</button></div></form></dialog>
+<dialog id="equipmentDialog" class="eq-premium-dialog" aria-labelledby="equipmentDialogTitle"><form id="equipmentForm"><header class="eq-premium-head"><span>MAQON | GESTÃO DE EQUIPAMENTOS</span><h2 id="equipmentDialogTitle">Novo Equipamento</h2><p>Cadastro técnico, operacional e comercial</p><button type="button" class="eq-premium-close" id="closeEquipmentPremium" aria-label="Fechar">×</button></header><div class="eq-premium-content"><section class="eq-premium-section"><h3>01 | Identificação do equipamento</h3><div class="eq-premium-grid"><label class="eq-premium-field"><span>Categoria / Tipo de equipamento</span><select id="eqCategory"><option>Escavadeira</option><option>Retroescavadeira</option><option>Motoniveladora</option><option>Pá Carregadeira</option><option>Trator de Esteiras</option><option>Guindaste</option><option>Munck</option><option>Caminhão Basculante</option><option>Caminhão Pipa</option><option>Outro</option></select></label><label class="eq-premium-field"><span>Fabricante / Marca *</span><input id="eqMaker" type="text" required placeholder="Fabricante / Marca"></label><label class="eq-premium-field"><span>Modelo / Versão *</span><input id="eqModel" type="text" required placeholder="Modelo / Versão"></label><label class="eq-premium-field"><span>Ano de fabricação</span><input id="eqYear" type="number" placeholder="Ano de fabricação"></label><label class="eq-premium-field"><span>Prefixo / Identificação interna</span><input id="eqIdentification" type="text" placeholder="Prefixo / Identificação interna"></label><label class="eq-premium-field"><span>Número de série / Chassi</span><input id="eqSerial" type="text" placeholder="Número de série / Chassi"></label></div></section><section class="eq-premium-section"><h3>02 | Dados técnicos e operacionais</h3><div class="eq-premium-grid"><label class="eq-premium-field"><span>Horímetro atual (h)</span><input id="eqHours" type="number" step="0.1" placeholder="Horímetro atual (h)"></label><label class="eq-premium-field"><span>Consumo (L/h)</span><input id="eqConsumption" type="number" step="0.01" placeholder="Consumo (L/h)"></label><label class="eq-premium-field"><span>Disponibilidade (%)</span><input id="eqAvailability" type="number" step="0.1" min="0" max="100" placeholder="Disponibilidade (%)"></label><label class="eq-premium-field"><span>Situação do equipamento</span><select id="eqStatus"><option>Ativo</option><option>Em manutenção</option><option>Disponível</option><option>Locado</option><option>Vendido</option><option>Inativo</option></select></label><label class="eq-premium-field"><span>Localização / Obra / Contrato</span><input id="eqLocation" type="text" placeholder="Localização / Obra / Contrato"></label></div></section><section class="eq-premium-section"><h3>03 | Informações comerciais</h3><div class="eq-premium-grid"><label class="eq-premium-field"><span>Valor de aquisição (R$)</span><input id="eqValue" type="number" step="0.01" placeholder="Valor de aquisição (R$)"></label><label class="eq-premium-field"><span>Custo de manutenção (R$/h)</span><input id="eqMaintenance" type="number" step="0.01" placeholder="Custo de manutenção (R$/h)"></label></div></section><section class="eq-premium-section"><h3>04 | Observações técnicas</h3><div class="eq-premium-grid"><label class="eq-premium-field"><span>Observações técnicas</span><textarea id="eqNotes" rows="3" placeholder="Informações e particularidades do equipamento"></textarea></label></div></section><p class="eq-premium-hint">* Campos obrigatórios. Os registros continuam vinculados aos módulos de comparativos, análises e manutenção. Fotos, manuais e laudos podem ser vinculados aos registros de manutenção na V1.5.13.</p></div><footer class="eq-premium-actions"><button type="button" id="cancelEquipment">Cancelar</button><button class="primary" type="submit">Salvar equipamento</button></footer></form></dialog><dialog id="proposalDialog" aria-labelledby="proposalDialogTitle">
+  <form id="proposalForm" class="proposal-premium-form">
+    <header class="proposal-premium-heading">
+      <div class="proposal-premium-header-copy">
+        <span class="proposal-premium-kicker">MAQON | GESTÃO DE PROPOSTAS</span>
+        <h2 id="proposalDialogTitle">Nova Proposta Comercial</h2>
+        <p>Identificação do cliente, equipamento, escopo e condições comerciais.</p>
+      </div>
+      <button type="button" id="proposalCloseX" class="proposal-close" aria-label="Fechar proposta">×</button>
+    </header>
+
+    <section class="proposal-premium-section" aria-labelledby="propClientSection">
+      <h3 id="propClientSection">01 <span>CLIENTE / CONTATO</span></h3>
+      <div class="proposal-premium-grid">
+        <label class="proposal-premium-field proposal-full" for="proposalClient"><span>Cliente / Lead <b>*</b></span><select id="proposalClient" required></select></label>
+        <label class="proposal-premium-field" for="proposalCompany"><span>Empresa / Razão social</span><input id="proposalCompany" maxlength="130" placeholder="Conforme cadastro do cliente"></label>
+        <label class="proposal-premium-field" for="proposalContact"><span>Contato responsável</span><input id="proposalContact" maxlength="110" placeholder="Nome do contato"></label>
+        <label class="proposal-premium-field" for="proposalEmail"><span>E-mail</span><input id="proposalEmail" type="email" maxlength="150" placeholder="contato@empresa.com.br"></label>
+        <label class="proposal-premium-field" for="proposalPhone"><span>WhatsApp / Telefone</span><input id="proposalPhone" type="tel" maxlength="30" placeholder="(00) 00000-0000"></label>
+        <label class="proposal-premium-field proposal-full" for="proposalCity"><span>Cidade / UF</span><input id="proposalCity" maxlength="100" placeholder="Localidade do cliente"></label>
+      </div>
+    </section>
+
+    <section class="proposal-premium-section" aria-labelledby="propEquipmentSection">
+      <h3 id="propEquipmentSection">02 <span>EQUIPAMENTO E FORNECIMENTO</span></h3>
+      <div class="proposal-premium-grid">
+        <label class="proposal-premium-field proposal-full" for="proposalEquipment"><span>Equipamento cadastrado <b>*</b></span><select id="proposalEquipment" required></select></label>
+        <div class="proposal-equipment-info proposal-full" id="proposalEquipmentInfo" aria-live="polite">Selecione um equipamento para visualizar as características cadastradas.</div>
+        <label class="proposal-premium-field" for="proposalMode"><span>Modalidade <b>*</b></span><select id="proposalMode"><option>Compra</option><option>Venda</option><option>Locação</option><option>Consultoria</option><option>Manutenção</option><option>Projeto Especial</option></select></label>
+        <label class="proposal-premium-field" for="proposalQuantity"><span>Quantidade <b>*</b></span><input id="proposalQuantity" type="number" min="1" max="9999" step="1" value="1" required></label>
+        <label class="proposal-premium-field" for="proposalLocation"><span>Local de entrega / operação</span><input id="proposalLocation" maxlength="180" placeholder="Cidade, UF ou endereço operacional"></label>
+        <label class="proposal-premium-field" for="proposalDelivery"><span>Prazo de entrega / mobilização</span><input id="proposalDelivery" maxlength="100" placeholder="Ex.: 30 dias após contratação"></label>
+      </div>
+    </section>
+
+    <section class="proposal-premium-section" aria-labelledby="propCommercialSection">
+      <h3 id="propCommercialSection">03 <span>CONDIÇÕES COMERCIAIS</span></h3>
+      <div class="proposal-premium-grid">
+        <label class="proposal-premium-field" for="proposalValue"><span>Valor total da proposta (R$) <b>*</b></span><input id="proposalValue" type="number" step="0.01" min="0" placeholder="375000.00" required><small>Valor total negociado, não necessariamente o preço cadastrado do equipamento.</small></label>
+        <label class="proposal-premium-field" for="proposalValidity"><span>Validade da proposta <b>*</b></span><input id="proposalValidity" type="date" required></label>
+        <label class="proposal-premium-field proposal-full" for="proposalTerms"><span>Condições comerciais / pagamento</span><textarea id="proposalTerms" rows="3" placeholder="Descreva forma de pagamento, parcelas, impostos e condições negociadas."></textarea></label>
+        <label class="proposal-premium-field" for="proposalWarranty"><span>Garantia / suporte</span><input id="proposalWarranty" maxlength="180" placeholder="Informar somente condições confirmadas"></label>
+        <label class="proposal-premium-field" for="proposalFreight"><span>Frete / mobilização</span><input id="proposalFreight" maxlength="180" placeholder="Responsabilidade e condições"></label>
+      </div>
+    </section>
+
+    <section class="proposal-premium-section" aria-labelledby="propScopeSection">
+      <h3 id="propScopeSection">04 <span>DESCRIÇÃO / ESCOPO</span></h3>
+      <div class="proposal-premium-grid">
+        <label class="proposal-premium-field proposal-full" for="proposalScope"><span>Descrição detalhada da proposta</span><textarea id="proposalScope" rows="4" placeholder="Descreva exatamente o equipamento, serviço, entregáveis, aplicação e exclusões."></textarea></label>
+      </div>
+    </section>
+
+    <section class="proposal-premium-section" aria-labelledby="propControlSection">
+      <h3 id="propControlSection">05 <span>CONTROLE COMERCIAL</span></h3>
+      <div class="proposal-premium-grid">
+        <label class="proposal-premium-field" for="proposalStatus"><span>Status da proposta</span><select id="proposalStatus"><option>Rascunho</option><option>Enviada</option><option>Em negociação</option><option>Aprovada</option><option>Recusada</option><option>Expirada</option></select></label>
+        <label class="proposal-premium-field" for="proposalResponsible"><span>Responsável pela elaboração</span><input id="proposalResponsible" maxlength="100" placeholder="Equipe / consultor"></label>
+        <label class="proposal-premium-field proposal-full" for="proposalNotes"><span>Observações internas (não aparecem no PDF)</span><textarea id="proposalNotes" rows="2" placeholder="Anotações privadas para a equipe comercial"></textarea></label>
+        <label class="proposal-premium-check proposal-full" for="proposalDemo"><input id="proposalDemo" type="checkbox" checked><span>Dados fictícios / demonstração (desmarque somente ao utilizar dados reais e conferidos)</span></label>
+      </div>
+    </section>
+
+    <div class="proposal-premium-actions">
+      <span><b>*</b> Campos obrigatórios. Dados não preenchidos não serão inventados no documento.</span>
+      <div class="proposal-premium-buttons">
+        <button type="button" id="cancelProposal" class="proposal-secondary">Cancelar</button>
+        <button type="submit" class="proposal-secondary" id="proposalSave">Salvar proposta</button>
+        <button type="button" class="primary" id="proposalPreviewPdf">Visualizar / Salvar PDF</button>
+      </div>
+    </div>
+  </form>
+</dialog><script src="app.js?v=154"></script><script src="maqon-equipment-library.js?v=159"></script><script src="maqon-relatorios-pdf.js?v=1511"></script>
+<script src="maqon-propostas-premium.js?v=1512"></script>
+<script src="maqon-manutencao.js?v=1513"></script><script src="maqon-manutencao-documentos.js?v=15142"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="maqon-supabase-config.js?v=163"></script><script src="maqon-auth-pilot.js?v=163"></script></body></html>
