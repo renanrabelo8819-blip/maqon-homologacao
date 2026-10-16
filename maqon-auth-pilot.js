@@ -40,6 +40,14 @@
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
   });
   let activeCompany = null;
+  // Identidade da barra lateral: nunca usar nome/perfil fixo no HTML.
+  const identityName = document.getElementById('maqon-identity-name');
+  const identityRole = document.getElementById('maqon-identity-role');
+  const setIdentity = (name, role) => {
+    if (identityName) identityName.textContent = name;
+    if (identityRole) identityRole.textContent = role;
+  };
+  setIdentity('Acesso restrito', 'Faça login');
   let syncing = false;
   const msg = s => { cover.querySelector('#maqon-auth-msg').textContent = s || ''; };
   const banner=document.createElement('div');
@@ -48,7 +56,7 @@
   banner.style.display='none';
   document.body.append(banner);
   banner.querySelector('button').addEventListener('click',async()=>{
-    banner.style.display='none';cover.style.display='grid';activeCompany=null;
+    banner.style.display='none';cover.style.display='grid';activeCompany=null;setIdentity('Acesso restrito','Faça login');
     await client.auth.signOut(); location.reload();
   });
   const numberOrNull=v=>v === '' || v == null || !Number.isFinite(Number(v))?null:Number(v);
@@ -71,11 +79,20 @@
   };
   const login=async(session)=>{
     if(!session?.user) return;
-    const {data,error}=await client.from('maqon_usuarios').select('empresa_id').eq('usuario_id',session.user.id);
+    // O perfil vem do banco, nunca de um texto fixo na interface.
+    const {data,error}=await client.from('maqon_usuarios').select('empresa_id,perfil').eq('usuario_id',session.user.id);
     if(error)throw Error('Não foi possível consultar o vínculo da empresa: '+error.message);
     if(!data || data.length!==1)throw Error('Esta versão requer exatamente uma empresa vinculada ao usuário.');
     activeCompany=data[0].empresa_id;
+    const profile = data[0].perfil === 'administrador' ? 'Administrador' : 'Cliente';
+    // Se o nome da empresa não estiver disponível pela API, mostramos o e-mail
+    // autenticado; jamais a identidade do administrador original.
+    let displayName = session.user.email || 'Usuário autenticado';
+    const company = await client.from('maqon_empresas')
+      .select('nome').eq('id',activeCompany).maybeSingle();
+    if (!company.error && company.data?.nome) displayName = company.data.nome;
     await loadCloud();
+    setIdentity(displayName,profile);
     cover.style.display='none';banner.style.display='block';
   };
   cover.querySelector('#maqon-auth-form').addEventListener('submit',async e=>{
