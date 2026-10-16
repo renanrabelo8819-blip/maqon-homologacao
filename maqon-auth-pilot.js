@@ -1,127 +1,60 @@
-/* MAQON V1.6.3 - autenticacao e piloto de equipamentos.
-   NAO e uma versao de producao comercial: outros modulos permanecem locais. */
+/* MAQON V1.6.5 — Homologação: painel seguro de leitura. Não é produção comercial. */
 (() => {
   'use strict';
-  const cfg = window.MAQON_SUPABASE_CONFIG || {};
-  const ready = /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(cfg.url || '') && !!cfg.publishableKey;
-  const css = document.createElement('style');
-  css.textContent = `
-    #maqon-auth-cover{position:fixed;inset:0;z-index:2147483646;background:#07141c;color:#fff;display:grid;place-items:center;font-family:Arial,sans-serif;padding:16px}
-    #maqon-auth-cover .mq-box{max-width:460px;width:100%;border:1px solid #d7a900;border-radius:16px;background:#102732;padding:28px;box-shadow:0 20px 75px #0009}
-    #maqon-auth-cover h1{color:#ffc900;margin:0 0 12px;font-size:26px}
-    #maqon-auth-cover p{line-height:1.5;color:#e0e8ed}
-    #maqon-auth-cover label{display:block;margin:12px 0 6px;font-weight:bold}
-    #maqon-auth-cover input{width:100%;box-sizing:border-box;border-radius:8px;border:1px solid #9eb1bd;padding:12px;font-size:16px}
-    #maqon-auth-cover button{border:0;border-radius:8px;padding:12px 18px;background:#ffc900;font-weight:800;cursor:pointer;margin-top:15px}
-    #maqon-auth-cover .msg{color:#ffb9b9;min-height:1.5em;font-size:14px}
-    #maqon-pilot-banner{position:fixed;right:12px;bottom:12px;z-index:99999;background:#192c36;color:#fff;border:1px solid #ffc900;padding:9px 14px;border-radius:8px;font:12px Arial;max-width:380px}
-    #maqon-pilot-banner button{margin-left:10px;padding:4px 7px;cursor:pointer}
+  const css=document.createElement('style');
+  css.textContent=`
+    body > *:not(#mq165-cover):not(#mq165-panel) { display:none!important; }
+    body{margin:0!important;background:#07131a!important;color:#eff5f7!important;font-family:Arial,sans-serif!important}
+    #mq165-cover{position:fixed;inset:0;z-index:2147483646;display:grid;place-items:center;background:#07131a;padding:16px;box-sizing:border-box}
+    #mq165-cover .login{width:min(460px,100%);border:1px solid #ffc900;border-radius:16px;background:#102630;padding:30px;box-sizing:border-box}
+    #mq165-cover h1,#mq165-panel h1{color:#ffc900} #mq165-cover input{box-sizing:border-box;width:100%;padding:12px;border-radius:7px;border:1px solid #adc1cd;margin:8px 0 14px;font-size:16px}
+    #mq165-cover button,#mq165-panel button{background:#ffc900;color:#051018;font-weight:700;border:0;border-radius:7px;padding:12px 16px;cursor:pointer}
+    #mq165-cover label{font-weight:bold}#mq165-error{color:#ffbebe;min-height:22px}
+    #mq165-panel{display:none;position:relative;z-index:2147483645;max-width:1160px;margin:0 auto;padding:28px 20px}
+    #mq165-panel header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #a47e00;padding-bottom:18px}
+    #mq165-panel .sub{color:#bed2db} #mq165-panel .warn{border:1px solid #ae8e21;background:#182b33;border-radius:10px;padding:16px;margin:20px 0;line-height:1.6}
+    #mq165-panel .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:20px 0}
+    #mq165-panel .card{border:1px solid #36505b;border-radius:10px;background:#102630;padding:16px}#mq165-panel .card b{font-size:26px;display:block;margin:10px 0;color:#ffc900}
+    #mq165-panel .scroll{overflow:auto}#mq165-panel table{width:100%;border-collapse:collapse;min-width:560px}#mq165-panel th,#mq165-panel td{padding:12px;border-bottom:1px solid #314a55;text-align:left}#mq165-panel th{color:#ffc900}
   `;
   document.head.append(css);
-  const cover = document.createElement('section');
-  cover.id = 'maqon-auth-cover';
-  cover.innerHTML = `<div class="mq-box"><h1>MAQON • Acesso de homologação</h1><p>Ambiente de teste. Os módulos de propostas, manutenção, documentos e CRM ainda não estão sincronizados e não devem receber dados reais de clientes.</p>
-  <form id="maqon-auth-form"><label for="maqon-auth-email">E-mail</label><input id="maqon-auth-email" type="email" autocomplete="username" required>
-  <label for="maqon-auth-pass">Senha</label><input id="maqon-auth-pass" type="password" autocomplete="current-password" required>
-  <button type="submit">Entrar</button><p class="msg" role="alert" id="maqon-auth-msg"></p></form></div>`;
+  const cover=document.createElement('div');cover.id='mq165-cover';
+  cover.innerHTML=`<div class="login"><h1>MAQON • Homologação segura</h1><p>Teste de acesso por empresa. Módulos comerciais locais estão bloqueados para impedir mistura de dados.</p><form id="mq165-form"><label for="mq165-email">E-mail</label><input id="mq165-email" type="email" autocomplete="username" required><label for="mq165-password">Senha</label><input id="mq165-password" type="password" autocomplete="current-password" required><button>Entrar</button><p id="mq165-error" role="alert"></p></form></div>`;
   document.body.append(cover);
-  if (!ready) {
-    cover.querySelector('form').remove();
-    const p=document.createElement('p');
-    p.textContent='Configure a URL e a chave publishable do Supabase no arquivo maqon-supabase-config.js antes de abrir esta versão. Nenhum dado foi enviado.';
-    cover.querySelector('.mq-box').append(p);
-    return;
+  const panel=document.createElement('main');panel.id='mq165-panel';
+  panel.innerHTML=`<header><div><h1>MAQON • Área de homologação</h1><strong id="mq165-company"></strong><div id="mq165-profile" class="sub"></div></div><button id="mq165-logout">Sair</button></header><div class="warn"><strong>Modo seguro — V1.6.5</strong><div>Leads, CRM, propostas, manutenção, documentos e integrações permanecem indisponíveis enquanto não houver isolamento e sincronização completos no Supabase. Não utilize dados reais de clientes.</div></div><div class="cards"><div class="card">Empresa vinculada<b id="mq165-linked">1</b></div><div class="card">Equipamentos da empresa (Supabase)<b id="mq165-count">—</b></div><div class="card">Operações comerciais<b>Bloqueadas</b></div></div><h2>Equipamentos da empresa — consulta somente leitura</h2><p id="mq165-status" class="sub">Aguardando autenticação.</p><div class="scroll"><table><thead><tr><th>Categoria</th><th>Fabricante</th><th>Modelo</th><th>Ano</th><th>Situação</th></tr></thead><tbody id="mq165-rows"></tbody></table></div>`;
+  document.body.append(panel);
+  const $=id=>document.getElementById(id);
+  const error=m=>{$('mq165-error').textContent=m||''};
+  const cfg=window.MAQON_SUPABASE_CONFIG||{};
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(cfg.url||'')||!String(cfg.publishableKey||'').startsWith('sb_publishable_')||!window.supabase?.createClient){error('Conexão Supabase indisponível. Confira URL, publishable key e biblioteca.');return}
+  const sb=window.supabase.createClient(cfg.url.replace(/\/$/,''),cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+  let version=0;
+  async function showSession(session){
+    const run=++version;
+    if(!session?.user){panel.style.display='none';cover.style.display='grid';return}
+    // Não exibimos nem dados locais nem interface anterior. A API deve confirmar o vínculo.
+    const membership=await sb.from('maqon_usuarios').select('empresa_id,perfil').eq('usuario_id',session.user.id);
+    if(membership.error)throw Error('Vínculo com empresa indisponível: '+membership.error.message);
+    if(!membership.data||membership.data.length!==1)throw Error('Usuário sem empresa única válida. Acesso bloqueado.');
+    const {empresa_id,perfil}=membership.data[0];
+    const company=await sb.from('maqon_empresas').select('nome').eq('id',empresa_id).single();
+    if(company.error||!company.data)throw Error('Não foi possível validar a empresa. Acesso bloqueado.');
+    const equipments=await sb.from('maqon_equipamentos').select('empresa_id,categoria,fabricante,modelo,ano,situacao').eq('empresa_id',empresa_id).order('modelo');
+    if(equipments.error)throw Error('Não foi possível consultar equipamentos: '+equipments.error.message);
+    if((equipments.data||[]).some(x=>x.empresa_id!==empresa_id))throw Error('Falha no isolamento de registros. Acesso bloqueado.');
+    if(run!==version)return;
+    $('mq165-company').textContent=company.data.nome;
+    $('mq165-profile').textContent=(perfil==='administrador'?'Administrador':'Cliente')+' • '+(session.user.email||'Usuário autenticado');
+    $('mq165-count').textContent=String((equipments.data||[]).length);
+    $('mq165-status').textContent='Lista carregada da API Supabase, vinculada à empresa autenticada.';
+    const tbody=$('mq165-rows');tbody.replaceChildren();
+    for(const item of equipments.data||[]){const tr=document.createElement('tr');for(const field of ['categoria','fabricante','modelo','ano','situacao']){const td=document.createElement('td');td.textContent=String(item[field]??'—');tr.append(td)}tbody.append(tr)}
+    if(!equipments.data?.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=5;td.textContent='Nenhum equipamento cadastrado nesta empresa.';tr.append(td);tbody.append(tr)}
+    cover.style.display='none';panel.style.display='block';
   }
-  if (!window.supabase || !window.supabase.createClient) {
-    cover.querySelector('#maqon-auth-msg').textContent='Biblioteca Supabase não carregada. Verifique a conexão.';
-    return;
-  }
-  const client = window.supabase.createClient(cfg.url.replace(/\/$/,''),cfg.publishableKey,{
-    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
-  });
-  let activeCompany = null;
-  // Identidade da barra lateral: nunca usar nome/perfil fixo no HTML.
-  const identityName = document.getElementById('maqon-identity-name');
-  const identityRole = document.getElementById('maqon-identity-role');
-  const setIdentity = (name, role) => {
-    if (identityName) identityName.textContent = name;
-    if (identityRole) identityRole.textContent = role;
-  };
-  setIdentity('Acesso restrito', 'Faça login');
-  let syncing = false;
-  const msg = s => { cover.querySelector('#maqon-auth-msg').textContent = s || ''; };
-  const banner=document.createElement('div');
-  banner.id='maqon-pilot-banner';
-  banner.innerHTML='HOMOLOGAÇÃO V1.6.3 — login ativo; outros módulos ainda locais. <button id="maqon-signout">Sair</button>';
-  banner.style.display='none';
-  document.body.append(banner);
-  banner.querySelector('button').addEventListener('click',async()=>{
-    banner.style.display='none';cover.style.display='grid';activeCompany=null;setIdentity('Acesso restrito','Faça login');
-    await client.auth.signOut(); location.reload();
-  });
-  const numberOrNull=v=>v === '' || v == null || !Number.isFinite(Number(v))?null:Number(v);
-  const mapToRow=(x)=>({
-    categoria:x[0]||'', fabricante:x[1]||'',modelo:x[2]||'',
-    ano:numberOrNull(x[3]),horimetro_h:numberOrNull(x[4]),valor_aquisicao:numberOrNull(x[5]),
-    consumo_l_h:numberOrNull(x[6]),custo_manutencao_h:numberOrNull(x[7]),
-    disponibilidade_pct:numberOrNull(x[8]),
-    situacao:({'ativo':'ativo','inativo':'inativo','manutenção':'manutencao','vendido':'vendido'})[String(x[9]||'ativo').toLowerCase()]||'ativo',
-    prefixo:x[10]||null,numero_serie:x[11]||null,
-    observacoes:[x[12]?'Local: '+x[12]:'',x[13]||''].filter(Boolean).join('\n')||null
-  });
-  const mapToLegacy=r=>[r.categoria,r.fabricante,r.modelo,String(r.ano??''),String(r.horimetro_h??''),String(r.valor_aquisicao??''),String(r.consumo_l_h??''),String(r.custo_manutencao_h??''),String(r.disponibilidade_pct??''),({manutencao:'Manutenção',vendido:'Vendido',inativo:'Inativo'})[r.situacao]||'Ativo',r.prefixo||'',r.numero_serie||'', '',r.observacoes||''];
-  const loadCloud=async()=>{
-    if(!activeCompany)throw Error('Empresa não identificada');
-    const {data,error}=await client.from('maqon_equipamentos').select('*').eq('empresa_id',activeCompany).order('criado_em',{ascending:false});
-    if(error)throw error;
-    // API explicita evita misturar os dados locais de outras contas.
-    window.dispatchEvent(new CustomEvent('maqon:cloud-equipment',{detail:(data||[]).map(mapToLegacy)}));
-  };
-  const login=async(session)=>{
-    if(!session?.user) return;
-    // O perfil vem do banco, nunca de um texto fixo na interface.
-    const {data,error}=await client.from('maqon_usuarios').select('empresa_id,perfil').eq('usuario_id',session.user.id);
-    if(error)throw Error('Não foi possível consultar o vínculo da empresa: '+error.message);
-    if(!data || data.length!==1)throw Error('Esta versão requer exatamente uma empresa vinculada ao usuário.');
-    activeCompany=data[0].empresa_id;
-    const profile = data[0].perfil === 'administrador' ? 'Administrador' : 'Cliente';
-    // Se o nome da empresa não estiver disponível pela API, mostramos o e-mail
-    // autenticado; jamais a identidade do administrador original.
-    let displayName = session.user.email || 'Usuário autenticado';
-    const company = await client.from('maqon_empresas')
-      .select('nome').eq('id',activeCompany).maybeSingle();
-    if (!company.error && company.data?.nome) displayName = company.data.nome;
-    await loadCloud();
-    setIdentity(displayName,profile);
-    cover.style.display='none';banner.style.display='block';
-  };
-  cover.querySelector('#maqon-auth-form').addEventListener('submit',async e=>{
-    e.preventDefault(); msg('Autenticando...');
-    const email=cover.querySelector('#maqon-auth-email').value.trim();
-    const password=cover.querySelector('#maqon-auth-pass').value;
-    try{
-      const {data,error}=await client.auth.signInWithPassword({email,password});
-      if(error)throw error;
-      await login(data.session);
-      cover.querySelector('#maqon-auth-pass').value='';msg('');
-    }catch(err){msg(err.message||'Falha no acesso');await client.auth.signOut();}
-  });
-  client.auth.getSession().then(async({data,error})=>{
-    if(error)throw error;
-    if(data?.session)await login(data.session);
-  }).catch(err=>{msg(err.message||'Sessão indisponível');});
-  // API de salvamento opcional para o modulo de equipamentos. Não migra o armazenamento local.
-  window.MAQONCloudPilot={
-    async list(){return loadCloud();},
-    async replaceEquipment(rows){
-      if(syncing)throw Error('Salvamento em andamento');
-      if(!activeCompany)throw Error('Entre com uma conta para salvar');
-      syncing=true;
-      try {
-        // Usar IDs do banco para atualizar/excluir será parte da próxima etapa;
-        // não sobrescrevemos a coleção com uma exclusão/reinserção arriscada.
-        throw Error('Gravação de equipamentos ainda desativada na homologação. Nenhum registro foi modificado.');
-      } finally {syncing=false;}
-    }
-  };
+  async function authenticate(session){try{await showSession(session);error('')}catch(e){panel.style.display='none';cover.style.display='grid';error(e.message||'Falha ao validar o acesso');await sb.auth.signOut()}}
+  $('mq165-form').addEventListener('submit',async e=>{e.preventDefault();error('Verificando empresa e permissões...');const email=$('mq165-email').value.trim();const password=$('mq165-password').value;const result=await sb.auth.signInWithPassword({email,password});$('mq165-password').value='';if(result.error){error(result.error.message);return}await authenticate(result.data.session)});
+  $('mq165-logout').addEventListener('click',async()=>{++version;panel.style.display='none';cover.style.display='grid';await sb.auth.signOut()});
+  sb.auth.getSession().then(r=>{if(r.error)throw r.error;return authenticate(r.data.session)}).catch(e=>error(e.message||'Falha ao recuperar sessão'));
 })();
