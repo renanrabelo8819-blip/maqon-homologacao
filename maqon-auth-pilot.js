@@ -24,10 +24,12 @@
   function proposalPayload(){
     const cliente_nome=$('proposal-client').value.trim(), titulo=$('proposal-title').value.trim();
     if(!cliente_nome||!titulo)throw Error('Informe cliente e título da proposta.');
+    const numero=$('proposal-number').value.trim(),modalidade=$('proposal-type').value.trim();
+    if(!numero||!modalidade)throw Error('Preencha número e modalidade da proposta. O texto cinza é apenas um exemplo.');
     const raw=$('proposal-value').value.trim();
     const value=raw===''?null:Number(raw);
     if(value!==null&&(!Number.isFinite(value)||value<0||value>999999999999))throw Error('Valor total inválido.');
-    return {cliente_nome,titulo,numero:$('proposal-number').value.trim()||null,modalidade:$('proposal-type').value.trim()||null,valor_total:value,validade_ate:$('proposal-expiry').value||null,status:$('proposal-status').value};
+    return {cliente_nome,titulo,numero,modalidade,valor_total:value,validade_ate:$('proposal-expiry').value||null,status:$('proposal-status').value};
   }
   function clearProposal(){editingProposal=null;$('proposal-form').reset();$('proposal-form-title').textContent='Cadastrar proposta comercial de teste';$('proposal-save').textContent='Salvar proposta';$('proposal-cancel').hidden=true;}
   function drawProposals(){
@@ -66,10 +68,11 @@
     const savedCompany=companyId,savedUser=userId,button=$('proposal-save');button.disabled=true;
     try{const values=proposalPayload();proposalNotice('Gravando proposta no Supabase...');
       const response=editingProposal
-        ? await db.from('maqon_propostas').update(values).eq('id',editingProposal).eq('empresa_id',savedCompany).select('id')
-        : await db.from('maqon_propostas').insert({...values,empresa_id:savedCompany}).select('id');
+        ? await db.from('maqon_propostas').update(values).eq('id',editingProposal).eq('empresa_id',savedCompany).select('id,numero,modalidade')
+        : await db.from('maqon_propostas').insert({...values,empresa_id:savedCompany}).select('id,numero,modalidade');
       if(response.error)throw response.error;
       if(response.data?.length!==1)throw Error('Operação não confirmada ou sem permissão.');
+      if(response.data[0].numero!==values.numero||response.data[0].modalidade!==values.modalidade)throw Error('A gravação não retornou número e modalidade como informado. Confira regras do banco.');
       if(companyId!==savedCompany||userId!==savedUser)return;
       clearProposal();await refreshProposals();proposalNotice('Proposta de teste salva com sucesso no Supabase.');
     }catch(err){proposalNotice('Não foi possível salvar a proposta: '+(err.message||'erro desconhecido'));}finally{button.disabled=false;}

@@ -20,8 +20,8 @@
 <section class="panel"><h2 id="proposal-form-title">Cadastrar proposta comercial de teste</h2><form id="proposal-form"><div class="grid">
 <label>Cliente *<input id="proposal-client" maxlength="180" required placeholder="Cliente de teste"></label>
 <label>Título da proposta *<input id="proposal-title" maxlength="180" required placeholder="Locação de equipamento - TESTE"></label>
-<label>Número<input id="proposal-number" maxlength="80" placeholder="TESTE-001"></label>
-<label>Modalidade<input id="proposal-type" maxlength="100" placeholder="Locação"></label>
+<label>Número<input id="proposal-number" maxlength="80" required placeholder="Ex.: TESTE-001"></label>
+<label>Modalidade<input id="proposal-type" maxlength="100" required placeholder="Ex.: Locação"></label>
 <label>Valor total (R$)<input id="proposal-value" type="number" step="0.01" min="0" max="999999999999" placeholder="15000.00"></label>
 <label>Validade até<input id="proposal-expiry" type="date"></label>
 <label>Situação<select id="proposal-status"><option value="rascunho">Rascunho</option><option value="enviada">Enviada</option><option value="negociacao">Negociação</option><option value="aprovada">Aprovada</option><option value="cancelada">Cancelada</option></select></label>
