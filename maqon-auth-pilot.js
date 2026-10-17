@@ -1,4 +1,4 @@
-/* MAQON V1.6.8 - Cadastro de equipamentos de homologação com RLS Supabase */
+/* MAQON V1.6.9 - Cadastro de equipamentos de homologação com RLS Supabase */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -7,8 +7,8 @@
   const notice=m=>{$('notice').textContent=m||''};
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(cfg.url||'') || !String(cfg.publishableKey||'').startsWith('sb_publishable_') || !window.supabase?.createClient){showError('Configuração Supabase indisponível. Confira URL, publishable key e conexão de rede.');return;}
   const db=window.supabase.createClient(cfg.url.replace(/\/$/,''),cfg.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
-  let companyId=null, userId=null, equipment=[], proposals=[], leads=[], editing=null, editingProposal=null, editingLead=null, serial=0;
-  function lock(){++serial;companyId=null;userId=null;equipment=[];proposals=[];leads=[];editing=null;editingProposal=null;editingLead=null;$('workspace').style.display='none';$('login').style.display='block';$('login-password').value='';}
+  let companyId=null, userId=null, equipment=[], proposals=[], leads=[], maintenances=[], editingMaintenance=null, editing=null, editingProposal=null, editingLead=null, serial=0;
+  function lock(){++serial;companyId=null;userId=null;equipment=[];proposals=[];leads=[];maintenances=[];editingMaintenance=null;editing=null;editingProposal=null;editingLead=null;$('workspace').style.display='none';$('login').style.display='block';$('login-password').value='';}
   function safeYear(){const v=$('year').value.trim();if(!v)return null;const n=Number(v);if(!Number.isInteger(n)||n<1900||n>2200)throw Error('Informe um ano válido (1900 a 2200).');return n;}
   function payload(){const categoria=$('category').value.trim(),fabricante=$('manufacturer').value.trim(),modelo=$('model').value.trim();if(!categoria||!fabricante||!modelo)throw Error('Preencha categoria, fabricante e modelo.');return {categoria,fabricante,modelo,ano:safeYear(),prefixo:$('prefix').value.trim()||null,situacao:$('status').value};}
   function clearEditor(){editing=null;$('equipment-form').reset();$('form-title').textContent='Cadastrar equipamento de teste';$('save').textContent='Salvar equipamento';$('cancel').hidden=true;}
@@ -19,7 +19,7 @@
       const cell=document.createElement('td');const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.addEventListener('click',()=>editRecord(rec.id));cell.append(edit);tr.append(cell);tbody.append(tr);}
     if(!equipment.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='Nenhum equipamento de teste nesta empresa.';tr.append(td);tbody.append(tr);}
   }
-  async function refresh(){if(!companyId)throw Error('Empresa não identificada.');const company=companyId;const result=await db.from('maqon_equipamentos').select('id,empresa_id,categoria,fabricante,modelo,ano,prefixo,situacao').eq('empresa_id',company).order('modelo');if(result.error)throw Error('Erro ao carregar equipamentos: '+result.error.message);if(company!==companyId)return;if(result.data?.some(x=>x.empresa_id!==company))throw Error('Inconsistência de isolamento detectada.');equipment=result.data||[];draw();}
+  async function refresh(){if(!companyId)throw Error('Empresa não identificada.');const company=companyId;const result=await db.from('maqon_equipamentos').select('id,empresa_id,categoria,fabricante,modelo,ano,prefixo,situacao').eq('empresa_id',company).order('modelo');if(result.error)throw Error('Erro ao carregar equipamentos: '+result.error.message);if(company!==companyId)return;if(result.data?.some(x=>x.empresa_id!==company))throw Error('Inconsistência de isolamento detectada.');equipment=result.data||[];draw();renderMaintenanceEquipment();}
   function proposalNotice(m){$('proposal-notice').textContent=m||'';}
   function proposalPayload(){
     const cliente_nome=$('proposal-client').value.trim(), titulo=$('proposal-title').value.trim();
@@ -84,8 +84,54 @@
     for(const [input,key] of [['lead-name','nome'],['lead-company','empresa_cliente'],['lead-email','email'],['lead-phone','telefone'],['lead-equipment','equipamento_interesse'],['lead-origin','origem'],['lead-stage','etapa'],['lead-notes','observacoes']])$(input).value=rec[key]??'';
     $('lead-form-title').textContent='Editar lead de teste';$('lead-save').textContent='Salvar edição';$('lead-cancel').hidden=false;leadNotice('Editando registro desta empresa.');$('lead-form').scrollIntoView({behavior:'smooth'});
   }
+
+  function maintenanceNotice(m){$('maintenance-notice').textContent=m||'';}
+  function renderMaintenanceEquipment(){
+    const select=$('maintenance-equipment');const prior=select.value;select.replaceChildren();
+    const first=document.createElement('option');first.value='';first.textContent='Selecione um equipamento';select.append(first);
+    for(const item of equipment){const option=document.createElement('option');option.value=item.id;option.textContent=[item.categoria,item.fabricante,item.modelo,item.prefixo].filter(Boolean).join(' • ');select.append(option);}
+    if(equipment.some(x=>x.id===prior))select.value=prior;
+  }
+  function maintenancePayload(){
+    const equipamento_id=$('maintenance-equipment').value;
+    if(!equipment.some(x=>x.id===equipamento_id))throw Error('Selecione equipamento autorizado desta empresa.');
+    const atividade_ocorrencia=$('maintenance-activity').value.trim();if(!atividade_ocorrencia)throw Error('Informe a atividade/ocorrência.');
+    const data_registro=$('maintenance-date').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(data_registro))throw Error('Informe a data de registro.');
+    const raw=$('maintenance-cost').value.trim();const custo_previsto=raw?Number(raw):null;
+    if(custo_previsto!==null&&(!Number.isFinite(custo_previsto)||custo_previsto<0||custo_previsto>999999999999))throw Error('Custo previsto inválido.');
+    return {equipamento_id,tipo:$('maintenance-type').value,status:$('maintenance-status').value,data_registro,atividade_ocorrencia,
+      responsavel:$('maintenance-owner').value.trim()||null,prioridade:$('maintenance-priority').value||null,
+      data_proxima:$('maintenance-next').value||null,custo_previsto,
+      diagnostico:$('maintenance-diagnosis').value.trim()||null,acao_recomendada:$('maintenance-action').value.trim()||null,
+      observacoes:$('maintenance-notes').value.trim()||null};
+  }
+  function clearMaintenance(){editingMaintenance=null;$('maintenance-form').reset();$('maintenance-form-title').textContent='Cadastrar manutenção de teste';$('maintenance-save').textContent='Salvar manutenção';$('maintenance-cancel').hidden=true;renderMaintenanceEquipment();$('maintenance-date').value=new Date().toLocaleDateString('en-CA');}
+  function drawMaintenances(){
+    $('maintenance-count').textContent=String(maintenances.length);$('maintenance-status-text').textContent='Registros retornados pelo Supabase para a empresa autenticada.';
+    const tbody=$('maintenance-rows');tbody.replaceChildren();
+    for(const rec of maintenances){const tr=document.createElement('tr');const machine=equipment.find(x=>x.id===rec.equipamento_id);
+      const vals=[machine?[machine.fabricante,machine.modelo,machine.prefixo].filter(Boolean).join(' • '):'Equipamento',rec.tipo,rec.data_registro,rec.status,rec.atividade_ocorrencia,rec.responsavel,rec.prioridade];
+      for(const val of vals){const cell=document.createElement('td');cell.textContent=val??'—';tr.append(cell);}
+      const action=document.createElement('td'),button=document.createElement('button');button.type='button';button.textContent='Editar';button.addEventListener('click',()=>editMaintenance(rec.id));action.append(button);tr.append(action);tbody.append(tr);
+    }
+    if(!maintenances.length){const tr=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=8;cell.textContent='Nenhuma manutenção fictícia nesta empresa.';tr.append(cell);tbody.append(tr);}
+  }
+  async function refreshMaintenances(){
+    if(!companyId)throw Error('Empresa não identificada.');const company=companyId;
+    const r=await db.from('maqon_manutencoes').select('id,empresa_id,equipamento_id,tipo,status,data_registro,responsavel,atividade_ocorrencia,diagnostico,acao_recomendada,prioridade,data_proxima,custo_previsto,observacoes').eq('empresa_id',company).order('criado_em',{ascending:false});
+    if(r.error)throw Error('Falha ao consultar manutenções: '+r.error.message);
+    if(company!==companyId)return;
+    if(r.data?.some(x=>x.empresa_id!==company||!equipment.some(eq=>eq.id===x.equipamento_id)))throw Error('Isolamento ou relacionamento inválido nas manutenções.');
+    maintenances=r.data||[];drawMaintenances();
+  }
+  function editMaintenance(id){const rec=maintenances.find(x=>x.id===id);if(!rec)return;editingMaintenance=rec.id;
+    const fields=[['maintenance-equipment','equipamento_id'],['maintenance-type','tipo'],['maintenance-status','status'],['maintenance-date','data_registro'],['maintenance-owner','responsavel'],['maintenance-priority','prioridade'],['maintenance-next','data_proxima'],['maintenance-cost','custo_previsto'],['maintenance-activity','atividade_ocorrencia'],['maintenance-diagnosis','diagnostico'],['maintenance-action','acao_recomendada'],['maintenance-notes','observacoes']];
+    for(const [field,key] of fields)$(field).value=rec[key]??'';
+    $('maintenance-form-title').textContent='Editar manutenção de teste';$('maintenance-save').textContent='Salvar edição';$('maintenance-cancel').hidden=false;maintenanceNotice('Editando manutenção da empresa autenticada.');$('maintenance-form').scrollIntoView({behavior:'smooth'});
+  }
+
   function editRecord(id){const rec=equipment.find(x=>x.id===id);if(!rec)return;editing=rec.id;$('category').value=rec.categoria||'';$('manufacturer').value=rec.fabricante||'';$('model').value=rec.modelo||'';$('year').value=rec.ano??'';$('prefix').value=rec.prefixo||'';$('status').value=rec.situacao||'ativo';$('form-title').textContent='Editar equipamento de teste';$('save').textContent='Salvar edição';$('cancel').hidden=false;notice('Editando equipamento da empresa autenticada.');$('equipment-form').scrollIntoView({behavior:'smooth'});}
-  async function loadSession(session){const seq=++serial;if(!session?.user){lock();return;}const user=session.user;const membership=await db.from('maqon_usuarios').select('empresa_id,perfil').eq('usuario_id',user.id);if(seq!==serial)return;if(membership.error)throw Error('Falha ao verificar vínculo: '+membership.error.message);if(membership.data?.length!==1)throw Error('Usuário sem empresa única autorizada.');const member=membership.data[0];const company=await db.from('maqon_empresas').select('nome').eq('id',member.empresa_id).single();if(seq!==serial)return;if(company.error||!company.data)throw Error('Empresa não autorizada ou indisponível.');companyId=member.empresa_id;userId=user.id;await Promise.all([refresh(),refreshProposals(),refreshLeads()]);if(seq!==serial)return;$('company-name').textContent=company.data.nome;$('who').textContent=(member.perfil==='administrador'?'Administrador':'Cliente')+' • '+(user.email||'Conta autenticada');$('login').style.display='none';$('workspace').style.display='block';showError('');notice('');}
+  async function loadSession(session){const seq=++serial;if(!session?.user){lock();return;}const user=session.user;const membership=await db.from('maqon_usuarios').select('empresa_id,perfil').eq('usuario_id',user.id);if(seq!==serial)return;if(membership.error)throw Error('Falha ao verificar vínculo: '+membership.error.message);if(membership.data?.length!==1)throw Error('Usuário sem empresa única autorizada.');const member=membership.data[0];const company=await db.from('maqon_empresas').select('nome').eq('id',member.empresa_id).single();if(seq!==serial)return;if(company.error||!company.data)throw Error('Empresa não autorizada ou indisponível.');companyId=member.empresa_id;userId=user.id;await refresh();await Promise.all([refreshProposals(),refreshLeads(),refreshMaintenances()]);if(seq!==serial)return;$('company-name').textContent=company.data.nome;$('who').textContent=(member.perfil==='administrador'?'Administrador':'Cliente')+' • '+(user.email||'Conta autenticada');$('login').style.display='none';$('workspace').style.display='block';showError('');notice('');}
   async function validateSession(session){try{await loadSession(session)}catch(e){lock();showError(e.message||'Falha de autorização.');await db.auth.signOut();}}
   $('login-form').addEventListener('submit',async e=>{e.preventDefault();showError('Validando acesso...');$('login-button').disabled=true;try{const response=await db.auth.signInWithPassword({email:$('login-email').value.trim(),password:$('login-password').value});if(response.error)throw response.error;$('login-password').value='';await validateSession(response.data.session)}catch(err){showError(err.message||'Falha no login.')}finally{$('login-button').disabled=false;}});
   $('equipment-form').addEventListener('submit',async e=>{e.preventDefault();if(!companyId||!userId){notice('Sessão inválida. Entre novamente.');return;}const savedCompany=companyId, savedUser=userId;const button=$('save');button.disabled=true;try{const values=payload();notice('Gravando no Supabase...');let response;if(editing){response=await db.from('maqon_equipamentos').update(values).eq('id',editing).eq('empresa_id',savedCompany).select('id');}else{response=await db.from('maqon_equipamentos').insert({...values,empresa_id:savedCompany}).select('id');}
@@ -117,9 +163,24 @@
       clearLead();await refreshLeads();leadNotice('Lead fictício salvo com sucesso no Supabase.');
     }catch(err){leadNotice('Falha ao salvar lead: '+(err.message||'erro desconhecido'));}finally{button.disabled=false;}
   });
+  $('maintenance-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(!companyId||!userId){maintenanceNotice('Sessão inválida. Entre novamente.');return;}
+    const company=companyId,user=userId,button=$('maintenance-save');button.disabled=true;
+    try{const values=maintenancePayload();maintenanceNotice('Gravando manutenção no Supabase...');
+      const r=editingMaintenance
+        ? await db.from('maqon_manutencoes').update(values).eq('id',editingMaintenance).eq('empresa_id',company).select('id,empresa_id,equipamento_id')
+        : await db.from('maqon_manutencoes').insert({...values,empresa_id:company}).select('id,empresa_id,equipamento_id');
+      if(r.error)throw r.error;
+      if(r.data?.length!==1||r.data[0].empresa_id!==company||r.data[0].equipamento_id!==values.equipamento_id)throw Error('Gravação não confirmada ou acesso negado.');
+      if(company!==companyId||user!==userId)return;
+      clearMaintenance();await refreshMaintenances();maintenanceNotice('Manutenção fictícia salva com sucesso no Supabase.');
+    }catch(err){maintenanceNotice('Falha ao salvar manutenção: '+(err.message||'erro desconhecido'));}finally{button.disabled=false;}
+  });
+  $('maintenance-cancel').addEventListener('click',()=>{clearMaintenance();maintenanceNotice('Edição cancelada.');});
   $('lead-cancel').addEventListener('click',()=>{clearLead();leadNotice('Edição cancelada.');});
   $('proposal-cancel').addEventListener('click',()=>{clearProposal();proposalNotice('Edição cancelada.');});
   $('cancel').addEventListener('click',()=>{clearEditor();notice('Edição cancelada.');});
   $('signout').addEventListener('click',async()=>{lock();await db.auth.signOut();showError('');});
+  $('maintenance-date').value=new Date().toLocaleDateString('en-CA');
   db.auth.getSession().then(r=>{if(r.error)throw r.error;return validateSession(r.data.session);}).catch(e=>{lock();showError(e.message||'Erro ao recuperar sessão.');});
 })();
