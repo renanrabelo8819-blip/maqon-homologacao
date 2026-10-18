@@ -27,12 +27,19 @@
  }catch(e){if(serial===seq){items=[];companyId=null;userId=null;$('report-maintenance').replaceChildren(new Option('Selecione uma manutenção',''));notice('Acesso indisponível: '+e.message);}}}
  const ink=[15,39,49], gold=[244,181,0], muted=[95,111,122];
  const color=(pdf,v)=>pdf.setTextColor(...v);
+ let activeHeader={};
  function header(pdf,section){
-  pdf.setFillColor(...ink);pdf.rect(0,0,210,24,'F');
-  pdf.setFillColor(...gold);pdf.rect(0,24,210,1.5,'F');
-  pdf.setFont('helvetica','bold');pdf.setFontSize(16);color(pdf,gold);pdf.text('MAQON',16,11);
-  pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(236,241,242);pdf.text('RELATÓRIO TÉCNICO DE MANUTENÇÃO',16,18);
-  pdf.setFontSize(8);color(pdf,[220,228,231]);pdf.text(section||'HOMOLOGAÇÃO',194,17,{align:'right'});
+  const h=activeHeader;
+  pdf.setFillColor(...ink);pdf.rect(0,0,210,29,'F');
+  pdf.setFillColor(...gold);pdf.rect(0,29,210,1.5,'F');
+  let left=16;
+  if(h.logo){try{pdf.addImage(h.logo,'PNG',16,4,21,21);left=40;}catch(e){left=16;}}
+  pdf.setFont('helvetica','bold');pdf.setFontSize(14);color(pdf,gold);
+  pdf.text(fmt(h.brand||'MAQON').slice(0,64),left,10,{maxWidth:148-left+16});
+  pdf.setFont('helvetica','normal');pdf.setFontSize(8.5);pdf.setTextColor(242,244,244);
+  pdf.text(fmt(h.title||'RELATÓRIO TÉCNICO DE MANUTENÇÃO').slice(0,95),left,17,{maxWidth:194-left});
+  pdf.setFontSize(7.5);color(pdf,[202,217,223]);pdf.text(fmt(h.subtitle||'Relatório técnico • MAQON').slice(0,100),left,23,{maxWidth:194-left});
+  pdf.setFontSize(7);color(pdf,[234,221,172]);pdf.text(section||'HOMOLOGAÇÃO',194,8,{align:'right'});
  }
  function page(pdf,s,section){if(s.page){pdf.addPage();}s.page=true;s.y=35;header(pdf,section);}
  function room(pdf,s,need,section){if(s.y+need>273)page(pdf,s,section||'CONTINUAÇÃO');}
@@ -70,6 +77,18 @@
    pdf.addImage(img,'JPEG',x,s.y,w,h);s.y+=h+9;
   }finally{URL.revokeObjectURL(url);}
  }
+ async function loadLogo(){
+  const file=$('report-logo')?.files?.[0];if(!file)return null;
+  if(!['image/png','image/jpeg'].includes(file.type)||file.size>2*1024*1024)throw Error('Logo: use JPG ou PNG de até 2 MB.');
+  const url=URL.createObjectURL(file);
+  try{
+   const im=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Logo inválido'));i.src=url;});
+   const canvas=document.createElement('canvas');canvas.width=320;canvas.height=320;
+   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,320,320);
+   const ratio=Math.min(320/im.width,320/im.height);ctx.drawImage(im,(320-im.width*ratio)/2,(320-im.height*ratio)/2,im.width*ratio,im.height*ratio);
+   return canvas.toDataURL('image/png');
+  }finally{URL.revokeObjectURL(url);}
+ }
  async function generate(){const button=$('report-generate');button.disabled=true;const ticket=++seq;
   try{
    const id=$('report-maintenance').value,found=items.find(x=>x.id===id);if(!found)throw Error('Selecione uma manutenção da sua empresa.');
@@ -81,7 +100,11 @@
    const dr=await db.from('maqon_documentos').select('id,empresa_id,manutencao_id,titulo,nome_arquivo,mime_type,storage_path,sistema_conjunto,componente_item,condicao_identificada,prioridade,observacoes').eq('empresa_id',ctx.company).eq('manutencao_id',found.id).order('criado_em',{ascending:true}).limit(30);
    if(dr.error)throw dr.error;if(dr.data?.some(x=>x.empresa_id!==ctx.company||x.manutencao_id!==found.id))throw Error('Vínculo de documentos inválido.');
    const check=await fetchContext();if(check.company!==ctx.company||check.user!==ctx.user||ticket!==seq)throw Error('Sessão alterada durante a geração.');
-   const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),s={y:35,page:false};header(pdf,'HOMOLOGAÇÃO');s.page=true;
+   const autoNumber=`MAN-${String(found.data_registro||'').slice(0,4)||'TESTE'}-${String(found.id).replace(/-/g,'').slice(0,10).toUpperCase()}`;
+   const reportNumber=($('report-number')?.value||'').trim()||autoNumber;
+   activeHeader={brand:($('report-brand')?.value||'').trim()||ctx.name,title:($('report-title')?.value||'').trim()||'RELATÓRIO TÉCNICO DE MANUTENÇÃO',subtitle:($('report-subtitle')?.value||'').trim()||'Relatório técnico • MAQON',logo:await loadLogo(),number:reportNumber};
+   const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),s={y:39,page:false};header(pdf,'HOMOLOGAÇÃO');s.page=true;
+   heading(pdf,s,'DADOS DE CONTROLE');field(pdf,s,'Número do relatório',reportNumber);field(pdf,s,'Data de emissão',new Date().toLocaleDateString('pt-BR'));
    heading(pdf,s,'01  IDENTIFICAÇÃO DO CLIENTE');field(pdf,s,'Empresa',ctx.name);
    heading(pdf,s,'02  IDENTIFICAÇÃO DO EQUIPAMENTO');
    field(pdf,s,'Equipamento',`${eq.data.fabricante} ${eq.data.modelo}`);field(pdf,s,'Categoria',eq.data.categoria);field(pdf,s,'Prefixo',eq.data.prefixo);field(pdf,s,'Ano',eq.data.ano);
@@ -91,7 +114,11 @@
    heading(pdf,s,'04  ANÁLISE TÉCNICA');field(pdf,s,'Atividade / ocorrência',found.atividade_ocorrencia);
    field(pdf,s,'Diagnóstico',found.diagnostico);field(pdf,s,'Ação recomendada',found.acao_recomendada);
    field(pdf,s,'Observações',found.observacoes);
-   const docs=dr.data||[];heading(pdf,s,`05  EVIDÊNCIAS TÉCNICAS (${docs.length})`);
+   heading(pdf,s,'05  RESPONSÁVEIS E CONFERÊNCIA');
+   field(pdf,s,'Elaborado por',($('report-author')?.value||'').trim()||found.responsavel||'Não informado');
+   field(pdf,s,'Revisado por',($('report-reviewer')?.value||'').trim()||'Não informado');
+   field(pdf,s,'Aprovado por',($('report-approver')?.value||'').trim()||'Não informado');
+   const docs=dr.data||[];heading(pdf,s,`06  EVIDÊNCIAS TÉCNICAS (${docs.length})`);
    if(!docs.length)field(pdf,s,'Evidências','Nenhum documento vinculado à manutenção.');
    else if($('report-images').value==='nao')field(pdf,s,'Evidências','Fotos omitidas por opção do usuário; metadados permanecem no registro.');
    else{
@@ -105,10 +132,10 @@
    const final=await fetchContext();if(final.company!==ctx.company||final.user!==ctx.user||ticket!==seq)throw Error('Sessão alterada; PDF não será salvo.');
    const pages=pdf.getNumberOfPages();for(let n=1;n<=pages;n++){
     pdf.setPage(n);pdf.setDrawColor(210,217,221);pdf.line(16,281,194,281);
-    pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);color(pdf,muted);pdf.text('MAQON • HOMOLOGAÇÃO • DADOS FICTÍCIOS',16,287);
+    pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);color(pdf,muted);pdf.text(`MAQON • HOMOLOGAÇÃO • ${fmt(activeHeader.number).slice(0,44)}`,16,287);
     pdf.text(`Página ${n} de ${pages}`,194,287,{align:'right'});
    }
-   pdf.save(`MAQON_Relatorio_Premium_Teste_${found.data_registro||'manutencao'}.pdf`);
+   pdf.save(`MAQON_Relatorio_${activeHeader.number.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,55)}.pdf`);
    notice('PDF Premium de homologação gerado. Não é o modelo comercial definitivo aprovado.');
   }catch(e){notice('Falha ao gerar PDF: '+(e.message||'erro desconhecido'));}finally{button.disabled=false;}
  }
