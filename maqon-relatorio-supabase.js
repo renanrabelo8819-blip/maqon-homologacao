@@ -13,6 +13,28 @@
  const draftKey=(uid,cid)=>`maqon:relatorio:rascunho:${uid}:${cid}`;
  function restoreSettings(uid,cid){try{const raw=localStorage.getItem(draftKey(uid,cid));if(!raw)return;const v=JSON.parse(raw);for(const id of editableIds){if(typeof v[id]==='string'&&$(id))$(id).value=v[id];}}catch(_){notice('Não foi possível recuperar as configurações locais.');}}
  async function saveSettings(){try{const c=await fetchContext();const v={};for(const id of editableIds)v[id]=$(id)?.value||'';localStorage.setItem(draftKey(c.user,c.company),JSON.stringify(v));notice('Configurações textuais salvas neste navegador para esta conta. Logo e PDF não foram enviados à nuvem.');}catch(e){notice('Falha ao salvar configurações: '+e.message);}}
+ async function restoreDefault(){
+  try{
+   const c=await fetchContext();
+   localStorage.removeItem(draftKey(c.user,c.company));
+   const defaults={'report-number':'','report-brand':'MAQON','report-title':'RELATÓRIO TÉCNICO DE MANUTENÇÃO','report-subtitle':'Consultoria em Equipamentos Pesados','report-author':'','report-reviewer':'','report-approver':'','report-images':'sim'};
+   for(const [id,value] of Object.entries(defaults))if($(id))$(id).value=value;
+   if($('report-logo'))$('report-logo').value='';
+   clearPreview();
+   notice('Padrão MAQON restaurado nesta conta. Faça uma nova pré-visualização antes de salvar o PDF.');
+  }catch(e){notice('Não foi possível restaurar o padrão: '+e.message);}
+ }
+ async function standardLogo(){
+  const res=await fetch('maqon-logo-original-aprovada.png',{cache:'no-cache'});
+  if(!res.ok)throw Error('A logo padrão MAQON não foi encontrada no repositório.');
+  const blob=await res.blob();const url=URL.createObjectURL(blob);
+  try{
+   const im=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('A logo padrão MAQON não abriu.'));i.src=url;});
+   const canvas=document.createElement('canvas');canvas.width=320;canvas.height=320;
+   const ratio=Math.min(320/im.width,320/im.height);canvas.getContext('2d').drawImage(im,(320-im.width*ratio)/2,(320-im.height*ratio)/2,im.width*ratio,im.height*ratio);
+   return canvas.toDataURL('image/png');
+  }finally{URL.revokeObjectURL(url);}
+ }
  async function downloadPreview(){if(!previewPdf||!previewName){notice('Primeiro clique em Pré-visualizar relatório.');return;}try{const c=await fetchContext();if(c.user!==previewUser||c.company!==previewCompany)throw Error('Conta ou empresa alterada. Gere nova prévia.');previewPdf.save(previewName);notice('PDF salvo no seu dispositivo. Nenhuma cópia foi enviada ao Supabase.');}catch(e){clearPreview();notice('Não foi possível salvar: '+e.message);}}
 
  const fmt=v=>String(v??'—').replace(/[\x00-\x1f]/g,' ').slice(0,2000);
@@ -110,7 +132,7 @@
    const check=await fetchContext();if(check.company!==ctx.company||check.user!==ctx.user||ticket!==seq)throw Error('Sessão alterada durante a geração.');
    const autoNumber=`MAN-${String(found.data_registro||'').slice(0,4)||'TESTE'}-${String(found.id).replace(/-/g,'').slice(0,10).toUpperCase()}`;
    const reportNumber=($('report-number')?.value||'').trim()||autoNumber;
-   activeHeader={brand:($('report-brand')?.value||'').trim()||ctx.name,title:($('report-title')?.value||'').trim()||'RELATÓRIO TÉCNICO DE MANUTENÇÃO',subtitle:($('report-subtitle')?.value||'').trim()||'Relatório técnico • MAQON',logo:await loadLogo(),number:reportNumber};
+   activeHeader={brand:($('report-brand')?.value||'').trim()||'MAQON',title:($('report-title')?.value||'').trim()||'RELATÓRIO TÉCNICO DE MANUTENÇÃO',subtitle:($('report-subtitle')?.value||'').trim()||'Relatório técnico • MAQON',logo:(await loadLogo())||(await standardLogo()),number:reportNumber};
    const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),s={y:39,page:false};header(pdf,'HOMOLOGAÇÃO');s.page=true;
    heading(pdf,s,'DADOS DE CONTROLE');field(pdf,s,'Número do relatório',reportNumber);field(pdf,s,'Data de emissão',new Date().toLocaleDateString('pt-BR'));
    heading(pdf,s,'01  IDENTIFICAÇÃO DO CLIENTE');field(pdf,s,'Empresa',ctx.name);
@@ -151,6 +173,7 @@
  $('report-generate')?.addEventListener('click',generate);
  $('report-download')?.addEventListener('click',downloadPreview);
  $('report-save-settings')?.addEventListener('click',saveSettings);
+ $('report-reset-default')?.addEventListener('click',restoreDefault);
  for(const id of [...editableIds,'report-maintenance','report-logo'])$(id)?.addEventListener(id==='report-logo'?'change':'input',clearPreview);
 
  $('report-refresh')?.addEventListener('click',refresh);
