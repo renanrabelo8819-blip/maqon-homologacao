@@ -7,6 +7,14 @@
  if(!window.supabase?.createClient||!config.url||!config.publishableKey)return;
  const db=window.supabase.createClient(config.url,config.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
  let items=[],companyId=null,userId=null,seq=0;
+ let previewPdf=null,previewUrl=null,previewName=null,previewCompany=null,previewUser=null;
+ const editableIds=['report-number','report-brand','report-title','report-subtitle','report-author','report-reviewer','report-approver','report-images'];
+ function clearPreview(){previewPdf=null;previewName=null;previewCompany=null;previewUser=null;const b=$('report-download');if(b)b.disabled=true;const box=$('report-preview-box');if(box)box.style.display='none';const frame=$('report-preview-frame');if(frame)frame.removeAttribute('src');if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}}
+ const draftKey=(uid,cid)=>`maqon:relatorio:rascunho:${uid}:${cid}`;
+ function restoreSettings(uid,cid){try{const raw=localStorage.getItem(draftKey(uid,cid));if(!raw)return;const v=JSON.parse(raw);for(const id of editableIds){if(typeof v[id]==='string'&&$(id))$(id).value=v[id];}}catch(_){notice('Não foi possível recuperar as configurações locais.');}}
+ async function saveSettings(){try{const c=await fetchContext();const v={};for(const id of editableIds)v[id]=$(id)?.value||'';localStorage.setItem(draftKey(c.user,c.company),JSON.stringify(v));notice('Configurações textuais salvas neste navegador para esta conta. Logo e PDF não foram enviados à nuvem.');}catch(e){notice('Falha ao salvar configurações: '+e.message);}}
+ async function downloadPreview(){if(!previewPdf||!previewName){notice('Primeiro clique em Pré-visualizar relatório.');return;}try{const c=await fetchContext();if(c.user!==previewUser||c.company!==previewCompany)throw Error('Conta ou empresa alterada. Gere nova prévia.');previewPdf.save(previewName);notice('PDF salvo no seu dispositivo. Nenhuma cópia foi enviada ao Supabase.');}catch(e){clearPreview();notice('Não foi possível salvar: '+e.message);}}
+
  const fmt=v=>String(v??'—').replace(/[\x00-\x1f]/g,' ').slice(0,2000);
  const readableDate=d=>/^\d{4}-\d\d-\d\d$/.test(String(d||''))?`${d.slice(8,10)}/${d.slice(5,7)}/${d.slice(0,4)}`:fmt(d);
  const titleCase=v=>{let a=fmt(v);return a==='—'?a:a.charAt(0).toUpperCase()+a.slice(1);};
@@ -16,11 +24,11 @@
   if(r.error||r.data?.length!==1)throw Error('Vínculo único de empresa não confirmado.');
   return {user:user.id,company:r.data[0].empresa_id,name:r.data[0].maqon_empresas?.nome||'Empresa de teste'};
  }
- async function refresh(){const serial=++seq;try{
+ async function refresh(){clearPreview();const serial=++seq;try{
   const c=await fetchContext();
   const r=await db.from('maqon_manutencoes').select('id,empresa_id,equipamento_id,tipo,status,data_registro,responsavel,atividade_ocorrencia,diagnostico,acao_recomendada,prioridade,data_proxima,custo_previsto,observacoes').eq('empresa_id',c.company).order('data_registro',{ascending:false}).limit(100);
   if(r.error)throw r.error;if(r.data?.some(x=>x.empresa_id!==c.company))throw Error('Inconsistência de acesso aos registros.');
-  if(serial!==seq)return;companyId=c.company;userId=c.user;items=r.data||[];
+  if(serial!==seq)return;const changed=companyId!==c.company||userId!==c.user;companyId=c.company;userId=c.user;items=r.data||[];if(changed)restoreSettings(c.user,c.company);
   const select=$('report-maintenance');select.replaceChildren(new Option('Selecione uma manutenção',''));
   for(const m of items)select.add(new Option(`${readableDate(m.data_registro)} • ${fmt(m.tipo)} • ${fmt(m.atividade_ocorrencia).slice(0,55)}`,m.id));
   notice(`Manutenções autorizadas disponíveis: ${items.length}.`);
@@ -89,7 +97,7 @@
    return canvas.toDataURL('image/png');
   }finally{URL.revokeObjectURL(url);}
  }
- async function generate(){const button=$('report-generate');button.disabled=true;const ticket=++seq;
+ async function generate(){clearPreview();const button=$('report-generate');button.disabled=true;const ticket=++seq;
   try{
    const id=$('report-maintenance').value,found=items.find(x=>x.id===id);if(!found)throw Error('Selecione uma manutenção da sua empresa.');
    const ctx=await fetchContext();if(ctx.company!==companyId||ctx.user!==userId||found.empresa_id!==ctx.company)throw Error('Sessão ou empresa alterada.');
@@ -135,12 +143,17 @@
     pdf.setFont('helvetica','normal');pdf.setFontSize(7.5);color(pdf,muted);pdf.text(`MAQON • HOMOLOGAÇÃO • ${fmt(activeHeader.number).slice(0,44)}`,16,287);
     pdf.text(`Página ${n} de ${pages}`,194,287,{align:'right'});
    }
-   pdf.save(`MAQON_Relatorio_${activeHeader.number.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,55)}.pdf`);
-   notice('PDF Premium de homologação gerado. Não é o modelo comercial definitivo aprovado.');
+   previewPdf=pdf;previewName=`MAQON_Relatorio_${activeHeader.number.replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,55)}.pdf`;previewCompany=ctx.company;previewUser=ctx.user;
+   previewUrl=URL.createObjectURL(pdf.output('blob'));$('report-preview-frame').src=previewUrl;$('report-preview-box').style.display='block';$('report-download').disabled=false;
+   notice('Prévia gerada. Confira as páginas e clique em Salvar PDF definitivo quando estiver aprovado.');
   }catch(e){notice('Falha ao gerar PDF: '+(e.message||'erro desconhecido'));}finally{button.disabled=false;}
  }
  $('report-generate')?.addEventListener('click',generate);
+ $('report-download')?.addEventListener('click',downloadPreview);
+ $('report-save-settings')?.addEventListener('click',saveSettings);
+ for(const id of [...editableIds,'report-maintenance','report-logo'])$(id)?.addEventListener(id==='report-logo'?'change':'input',clearPreview);
+
  $('report-refresh')?.addEventListener('click',refresh);
- db.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT'){++seq;companyId=null;userId=null;items=[];$('report-maintenance').replaceChildren(new Option('Selecione uma manutenção',''));notice('');}else if(event==='SIGNED_IN'||event==='INITIAL_SESSION')setTimeout(refresh,100);});
+ db.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT'){clearPreview();++seq;companyId=null;userId=null;items=[];$('report-maintenance').replaceChildren(new Option('Selecione uma manutenção',''));notice('');}else if(event==='SIGNED_IN'||event==='INITIAL_SESSION')setTimeout(refresh,100);});
  setTimeout(refresh,300);
 })();
