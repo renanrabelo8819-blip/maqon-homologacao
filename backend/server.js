@@ -313,6 +313,27 @@ app.post('/api/whatsapp/webhook',express.raw({type:'application/json'}),(req,res
 
 app.use(express.json({limit:'256kb'}));
 
+// MAQON V1.6.12 - Preparacao financeira, sem cobranca real.
+// Rotas administrativas apenas para verificacao e simulacao local.
+// Nao utilizar MAQON_ADMIN_TOKEN no navegador dos clientes.
+const MP_FINANCE_TEST_ONLY = true;
+const MP_TEST_CATALOG = Object.freeze({
+  analise_tecnica_teste: Object.freeze({title:'Analise tecnica MAQON (simulacao)', amount_cents:15000, kind:'servico_avulso'}),
+  assinatura_mensal_teste: Object.freeze({title:'Assinatura mensal MAQON (simulacao)', amount_cents:9990, kind:'assinatura_mensal'}),
+  assinatura_anual_teste: Object.freeze({title:'Assinatura anual MAQON (simulacao)', amount_cents:99900, kind:'assinatura_anual'})
+});
+app.get('/api/mercadopago/status',requireAdmin,(req,res)=>{
+  const env=String(process.env.MERCADOPAGO_ENV||'').toLowerCase();
+  res.json({module:'MAQON V1.6.12 - Preparacao financeira',mode:env==='sandbox'?'sandbox':'nao-habilitado',test_token_present:!!process.env.MERCADOPAGO_ACCESS_TOKEN,simulation_only:MP_FINANCE_TEST_ONLY,checkout_enabled:false,subscription_enabled:false,webhook_enabled:false});
+});
+app.post('/api/mercadopago/simular-pedido',requireAdmin,(req,res)=>{
+  if(String(process.env.MERCADOPAGO_ENV||'').toLowerCase()!=='sandbox') return res.status(503).json({error:'Simulacao disponivel somente com MERCADOPAGO_ENV=sandbox.'});
+  const item=MP_TEST_CATALOG[String(req.body?.codigo||'')];
+  if(!item)return res.status(400).json({error:'Codigo de catalogo de teste invalido.'});
+  res.json({simulation:true,charged:false,access_granted:false,external_reference:`MAQON-TEST-${crypto.randomUUID()}`,item_code:req.body.codigo,kind:item.kind,title:item.title,currency:'BRL',amount_cents:item.amount_cents,note:'Nenhuma chamada ao Mercado Pago, nenhuma cobranca e nenhuma liberacao de acesso.'});
+});
+
+
 app.post('/api/meta/connect-url',requireAdmin,(req,res)=>{
  const miss=missing(metaRequired);if(miss.length)return res.status(503).json({error:`Backend Meta incompleto: ${miss.join(', ')}`});
  const return_to=returnAllowed(req.body?.return_to)?req.body.return_to:FRONTEND_ORIGINS[0];if(!return_to)return res.status(400).json({error:'FRONTEND_URL não configurada.'});
