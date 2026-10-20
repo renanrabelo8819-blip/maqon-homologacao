@@ -313,6 +313,32 @@ app.post('/api/whatsapp/webhook',express.raw({type:'application/json'}),(req,res
 
 app.use(express.json({limit:'256kb'}));
 
+// MAQON V1.6.12.1 - Diagnostico SOMENTE LEITURA da API Mercado Pago.
+// Resposta nao expoe credenciais, dados de pagamentos ou mensagens da API.
+// Cache reduz chamadas externas; nunca cria pagamentos ou assinaturas.
+let mpDiagnosticCache = {at:0, result:null};
+app.get('/api/mercadopago/diagnostico', async (req,res)=>{
+  res.set('Cache-Control','no-store');
+  const mode=String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase();
+  const token=String(process.env.MERCADOPAGO_ACCESS_TOKEN||'').trim();
+  const safeMode=mode==='sandbox' && token.startsWith('TEST-');
+  if(!safeMode) return res.status(503).json({ok:false,mode:mode==='sandbox'?'sandbox':'desativado',reason:'Credencial de teste ausente/invalida ou ambiente incorreto.',charged:false});
+  if(mpDiagnosticCache.result && Date.now()-mpDiagnosticCache.at<60000) return res.status(mpDiagnosticCache.result.ok?200:503).json(mpDiagnosticCache.result);
+  try {
+    const response=await fetch('https://api.mercadopago.com/v1/payment_methods',{
+      method:'GET', headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},
+      signal:AbortSignal.timeout(8000)
+    });
+    const result={ok:response.ok,mode:'sandbox',connection:response.ok?'autenticada':'nao_validada',charged:false,subscriptions_created:false};
+    mpDiagnosticCache={at:Date.now(),result};
+    return res.status(response.ok?200:503).json(result);
+  } catch(e){
+    const result={ok:false,mode:'sandbox',connection:'indisponivel',charged:false,subscriptions_created:false};
+    mpDiagnosticCache={at:Date.now(),result};
+    return res.status(503).json(result);
+  }
+});
+
 // MAQON V1.6.12 - Preparacao financeira, sem cobranca real.
 // Rotas administrativas apenas para verificacao e simulacao local.
 // Nao utilizar MAQON_ADMIN_TOKEN no navegador dos clientes.
