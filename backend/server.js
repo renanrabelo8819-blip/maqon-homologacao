@@ -379,9 +379,17 @@ app.get('/pagamentos-teste',(req,res)=>{
 app.post('/api/mercadopago/preferencia-avulsa-teste',async(req,res)=>{
   res.set('Cache-Control','no-store');
   const conf=mpAllowTestCheckout();
-  if(!conf.ok) return res.status(503).json({error:'Checkout de homologacao nao habilitado ou token fora do padrao TEST-. Nenhuma operacao executada.'});
   const key=String(req.get('X-MAQON-Test-Key')||'');
-  if(!safeEqual(key,conf.key)) return res.status(401).json({error:'Chave de homologacao incorreta.'});
+  if(!conf.key || !safeEqual(key,conf.key)) return res.status(401).json({error:'Chave de homologacao incorreta.'});
+  // Diagnostico restrito a quem possui a chave de homologacao: nunca revela valores.
+  if(!conf.ok){
+    const motivos=[];
+    if(String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase()!=='sandbox') motivos.push('MERCADOPAGO_ENV deve ser sandbox');
+    if(!String(process.env.MERCADOPAGO_ACCESS_TOKEN||'').trim().startsWith('TEST-')) motivos.push('MERCADOPAGO_ACCESS_TOKEN deve comecar com TEST-');
+    if(String(process.env.MAQON_ENABLE_TEST_CHECKOUT||'')!=='true') motivos.push('MAQON_ENABLE_TEST_CHECKOUT deve ser true');
+    if(conf.key.length<24) motivos.push('MAQON_TEST_CHECKOUT_KEY deve ter ao menos 24 caracteres');
+    return res.status(503).json({error:'Checkout bloqueado: '+motivos.join('; ')+'. Nenhuma operacao executada.',charged:false});
+  }
   if(req.body?.codigo !== MP_AVULSO_CODE) return res.status(400).json({error:'Servico de teste nao permitido.'});
   const item=MP_TEST_CATALOG[MP_AVULSO_CODE];
   const ref=`MAQON-HOMOLOG-${crypto.randomUUID()}`;
