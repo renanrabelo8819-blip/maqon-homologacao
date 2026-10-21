@@ -361,6 +361,73 @@ app.post('/api/mercadopago/simular-pedido',requireAdmin,(req,res)=>{
 
 
 
+// MAQON V1.6.12.4 - Registro duravel de preferencias e conciliacao de webhooks (somente sandbox).
+// SUPABASE_SERVICE_ROLE_KEY e MP_WEBHOOK_SECRET ficam exclusivamente no servidor Render.
+const financeConfigured = () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+function financeUrl(pathname){
+  const u=new URL(String(process.env.SUPABASE_URL||''));
+  if(u.protocol!=='https:')throw new Error('Supabase URL invalida');
+  return new URL('/rest/v1/'+pathname,u).toString();
+}
+async function financeDb(pathname,{method='GET',body,prefer}={}){
+  if(!financeConfigured())throw new Error('Supabase financeiro nao configurado');
+  const init={method,headers:{'apikey':process.env.SUPABASE_SERVICE_ROLE_KEY,'Authorization':`Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,'Accept':'application/json'},signal:AbortSignal.timeout(10000)};
+  if(body!==undefined){init.headers['Content-Type']='application/json';init.body=JSON.stringify(body)}
+  if(prefer)init.headers['Prefer']=prefer;
+  const r=await fetch(financeUrl(pathname),init);
+  const value=await r.json().catch(()=>null);
+  if(!r.ok)throw new Error('Falha de operacao no banco financeiro (HTTP '+r.status+')');
+  return value;
+}
+function mpWebhookSignatureValid(req){
+  const secret=String(process.env.MP_WEBHOOK_SECRET||'');
+  const signature=String(req.get('x-signature')||'');
+  const requestId=String(req.get('x-request-id')||'');
+  const dataId=String(req.query['data.id']||'').toLowerCase();
+  if(!secret || !requestId || !/^\d{1,30}$/.test(dataId))return false;
+  const pairs=Object.fromEntries(signature.split(',').map(p=>p.trim().split('=',2)));
+  if(!/^\d{10,16}$/.test(pairs.ts||'') || !/^[0-9a-f]{64}$/i.test(pairs.v1||''))return false;
+  const ts=Number(pairs.ts);const ms=ts<1e11?ts*1000:ts;
+  if(Math.abs(Date.now()-ms)>10*60*1000)return false;
+  const manifest=`id:${dataId};request-id:${requestId};ts:${pairs.ts};`;
+  const expected=crypto.createHmac('sha256',secret).update(manifest).digest('hex');
+  return safeEqual(expected,pairs.v1.toLowerCase());
+}
+app.post('/api/mercadopago/webhook',async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase()!=='sandbox')return res.sendStatus(503);
+  if(!financeConfigured() || !process.env.MP_WEBHOOK_SECRET)return res.sendStatus(503);
+  if(!mpWebhookSignatureValid(req))return res.sendStatus(401);
+  if(String(req.query.type||req.body?.type||'')!=='payment')return res.status(200).json({received:true,ignored:true});
+  const id=String(req.query['data.id']);
+  try{
+    const token=String(process.env.MERCADOPAGO_ACCESS_TOKEN||'').trim();
+    if(!token.startsWith('TEST-'))return res.sendStatus(503);
+    const r=await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},signal:AbortSignal.timeout(10000)});
+    if(!r.ok)return res.sendStatus(503);
+    const payment=await r.json();
+    const ref=String(payment.external_reference||'');
+    if(!/^MAQON-HOMOLOG-[\da-f-]{36}$/i.test(ref))return res.status(200).json({received:true,ignored:true});
+    const rows=await financeDb('maqon_pagamentos_homologacao?external_reference=eq.'+encodeURIComponent(ref)+'&select=external_reference,valor_centavos,status,preference_id');
+    const row=rows?.[0];
+    if(!row)return res.status(200).json({received:true,matched:false});
+    if(payment.currency_id!=='BRL' || Math.round(Number(payment.transaction_amount)*100)!==row.valor_centavos) return res.status(200).json({received:true,matched:false});
+    // Nunca conceder acesso usando apenas o payload do webhook.
+    // Nesta versao o estado e exclusivamente de homologacao, sem entitlement.
+    const statuses=new Set(['approved','pending','in_process','rejected','cancelled','refunded','charged_back','authorized']);
+    const status=statuses.has(payment.status)?payment.status:'unknown';
+    // PATCH em um unico registro, sem inserir pagamentos desconhecidos.
+    await financeDb('maqon_pagamentos_homologacao?external_reference=eq.'+encodeURIComponent(ref),{
+      method:'PATCH',body:{status,mp_payment_id:String(payment.id),atualizado_em:new Date().toISOString()}
+    });
+    return res.status(200).json({received:true,matched:true,access_granted:false});
+  }catch(e){console.warn('Conciliacao financeira pendente:',String(e.message).slice(0,100));return res.sendStatus(503)}
+});
+// Consultas administrativas sem expor o token no browser do cliente.
+app.get('/api/mercadopago/financeiro-status',requireAdmin,async(req,res)=>{
+  res.json({ok:true,mode:'homologacao',db_configured:financeConfigured(),webhook_secret_present:!!process.env.MP_WEBHOOK_SECRET,access_granted:false,subscriptions_enabled:false});
+});
+
 // MAQON V1.6.12.2 - CHECKOUT DE TESTE, SOMENTE SERVICO AVULSO.
 // Checkout Pro por preferencia, como piloto isolado (nao e Checkout Bricks).
 // Nao ha webhook, nem liberacao de acesso, nem processamento de plano recorrente.
@@ -379,6 +446,7 @@ app.get('/pagamentos-teste',(req,res)=>{
 app.post('/api/mercadopago/preferencia-avulsa-teste',async(req,res)=>{
   res.set('Cache-Control','no-store');
   const conf=mpAllowTestCheckout();
+  if(!financeConfigured())return res.status(503).json({error:'Configure Supabase financeiro de homologacao antes de criar outra preferencia.'});
   const key=String(req.get('X-MAQON-Test-Key')||'');
   if(!conf.key || !safeEqual(key,conf.key)) return res.status(401).json({error:'Chave de homologacao incorreta.'});
   // Diagnostico restrito a quem possui a chave de homologacao: nunca revela valores.
@@ -413,6 +481,10 @@ app.post('/api/mercadopago/preferencia-avulsa-teste',async(req,res)=>{
     const checkoutUrl=String(data.sandbox_init_point||data.init_point||'');
     const validHost=(()=>{try{const u=new URL(checkoutUrl);return u.protocol==='https:'&& (u.hostname==='mercadopago.com.br'||u.hostname.endsWith('.mercadopago.com.br')||u.hostname==='mercadopago.com'||u.hostname.endsWith('.mercadopago.com'));}catch(e){return false}})();
     if(!validHost)return res.status(502).json({error:'Preferencia criada, mas sem URL de checkout confiavel.'});
+    // Registrar a preferencia ANTES de entregar o link. Falhas deixam o checkout indisponivel.
+    await financeDb('maqon_pagamentos_homologacao',{
+      method:'POST',prefer:'return=minimal',body:{external_reference:ref,preference_id:String(data.id||''),valor_centavos:item.amount_cents,moeda:'BRL',tipo:'servico_avulso',status:'preference_created'}
+    });
     return res.json({ok:true,mode:'sandbox',checkout_url:checkoutUrl,preference_id:String(data.id||''),external_reference:ref,amount_brl:item.amount_cents/100,charge_confirmed:false,access_granted:false,recurring:false});
   }catch(e){return res.status(503).json({error:'Nao foi possivel conectar ao Mercado Pago neste momento.'});}
 });
