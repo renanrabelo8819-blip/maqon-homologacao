@@ -360,6 +360,55 @@ app.post('/api/mercadopago/simular-pedido',requireAdmin,(req,res)=>{
 });
 
 
+
+// MAQON V1.6.12.2 - CHECKOUT DE TESTE, SOMENTE SERVICO AVULSO.
+// Checkout Pro por preferencia, como piloto isolado (nao e Checkout Bricks).
+// Nao ha webhook, nem liberacao de acesso, nem processamento de plano recorrente.
+const MP_AVULSO_CODE = 'analise_tecnica_teste';
+function mpAllowTestCheckout(){
+  const env = String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase();
+  const token = String(process.env.MERCADOPAGO_ACCESS_TOKEN||'').trim();
+  const enabled = String(process.env.MAQON_ENABLE_TEST_CHECKOUT||'') === 'true';
+  const key = String(process.env.MAQON_TEST_CHECKOUT_KEY||'');
+  return {ok:env==='sandbox' && token.startsWith('TEST-') && enabled && key.length>=24, token, key};
+}
+const MP_TEST_PAGE = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MAQON | Teste de checkout</title><style>body{font:16px system-ui,Arial;background:#07151c;color:#f2f7fb;max-width:640px;margin:40px auto;padding:16px}h1{color:#ffc400}.panel{background:#112a35;border:1px solid #335260;border-radius:12px;padding:22px}label{display:block;margin:20px 0 8px}input{box-sizing:border-box;width:100%;padding:12px;border-radius:6px;border:1px solid #8ba3ad}button{margin-top:18px;background:#ffc400;border:0;border-radius:7px;padding:13px 18px;font-weight:700;cursor:pointer}a{color:#ffc400}#result{white-space:pre-wrap;word-break:break-word;margin-top:18px}</style></head><body><h1>MAQON • Checkout de homologação</h1><div class="panel"><p>Teste restrito. Cria apenas uma preferência de <b>análise técnica fictícia (R$ 150,00)</b> e não libera acesso nem registra pagamento.</p><p>Não use cartões ou contas reais.</p><label for="key">Chave exclusiva de homologação (não é o Access Token Mercado Pago)</label><input type="password" id="key" autocomplete="off" placeholder="MAQON_TEST_CHECKOUT_KEY"><button id="go" type="button">Criar checkout de teste</button><div id="result" role="status"></div></div><script>document.getElementById('go').onclick=async()=>{const el=document.getElementById('result');el.textContent='Criando preferência...';try{const key=document.getElementById('key').value;const r=await fetch('/api/mercadopago/preferencia-avulsa-teste',{method:'POST',headers:{'Content-Type':'application/json','X-MAQON-Test-Key':key},body:JSON.stringify({codigo:'analise_tecnica_teste'})});const data=await r.json();if(!r.ok)throw Error(data.error||'Falha HTTP '+r.status);el.textContent='Preferência de teste criada. ';const a=document.createElement('a');a.href=data.checkout_url;a.rel='noopener noreferrer';a.target='_blank';a.textContent='Abrir checkout no Mercado Pago';el.appendChild(a);}catch(e){el.textContent='Erro: '+e.message;}};</script></body></html>`;
+app.get('/pagamentos-teste',(req,res)=>{
+  res.set('Cache-Control','no-store').type('html').send(MP_TEST_PAGE);
+});
+app.post('/api/mercadopago/preferencia-avulsa-teste',async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  const conf=mpAllowTestCheckout();
+  if(!conf.ok) return res.status(503).json({error:'Checkout de homologacao nao habilitado ou token fora do padrao TEST-. Nenhuma operacao executada.'});
+  const key=String(req.get('X-MAQON-Test-Key')||'');
+  if(!safeEqual(key,conf.key)) return res.status(401).json({error:'Chave de homologacao incorreta.'});
+  if(req.body?.codigo !== MP_AVULSO_CODE) return res.status(400).json({error:'Servico de teste nao permitido.'});
+  const item=MP_TEST_CATALOG[MP_AVULSO_CODE];
+  const ref=`MAQON-HOMOLOG-${crypto.randomUUID()}`;
+  const preference={
+    items:[{id:MP_AVULSO_CODE,title:item.title,quantity:1,currency_id:'BRL',unit_price:item.amount_cents/100}],
+    external_reference:ref,
+    metadata:{source:'maqon-homologacao',kind:'avulso-teste'},
+    statement_descriptor:'MAQON TESTE',
+    expires:true,
+    expiration_date_from:new Date().toISOString(),
+    expiration_date_to:new Date(Date.now()+30*60*1000).toISOString()
+  };
+  try{
+    const response=await fetch('https://api.mercadopago.com/checkout/preferences',{
+      method:'POST',
+      headers:{Authorization:`Bearer ${conf.token}`,'Content-Type':'application/json',Accept:'application/json','X-Idempotency-Key':crypto.randomUUID()},
+      body:JSON.stringify(preference),signal:AbortSignal.timeout(12000)
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) return res.status(502).json({error:'Mercado Pago rejeitou a criacao da preferencia de teste.',http_status:response.status,code:data?.error||null});
+    const checkoutUrl=String(data.sandbox_init_point||data.init_point||'');
+    const validHost=(()=>{try{const u=new URL(checkoutUrl);return u.protocol==='https:'&& (u.hostname==='mercadopago.com.br'||u.hostname.endsWith('.mercadopago.com.br')||u.hostname==='mercadopago.com'||u.hostname.endsWith('.mercadopago.com'));}catch(e){return false}})();
+    if(!validHost)return res.status(502).json({error:'Preferencia criada, mas sem URL de checkout confiavel.'});
+    return res.json({ok:true,mode:'sandbox',checkout_url:checkoutUrl,preference_id:String(data.id||''),external_reference:ref,amount_brl:item.amount_cents/100,charge_confirmed:false,access_granted:false,recurring:false});
+  }catch(e){return res.status(503).json({error:'Nao foi possivel conectar ao Mercado Pago neste momento.'});}
+});
+
 app.post('/api/meta/connect-url',requireAdmin,(req,res)=>{
  const miss=missing(metaRequired);if(miss.length)return res.status(503).json({error:`Backend Meta incompleto: ${miss.join(', ')}`});
  const return_to=returnAllowed(req.body?.return_to)?req.body.return_to:FRONTEND_ORIGINS[0];if(!return_to)return res.status(400).json({error:'FRONTEND_URL não configurada.'});
