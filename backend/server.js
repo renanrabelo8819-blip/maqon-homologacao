@@ -395,16 +395,18 @@ function mpWebhookSignatureValid(req){
 }
 app.post('/api/mercadopago/webhook',async(req,res)=>{
   res.set('Cache-Control','no-store');
-  if(String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase()!=='sandbox')return res.sendStatus(503);
-  if(!financeConfigured() || !process.env.MP_WEBHOOK_SECRET)return res.sendStatus(503);
-  if(!mpWebhookSignatureValid(req))return res.sendStatus(401);
+  if(String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase()!=='sandbox'){console.warn('[MAQON MP webhook] bloqueado: ambiente nao sandbox');return res.sendStatus(503);}
+  if(!financeConfigured()){console.warn('[MAQON MP webhook] bloqueado: configuracao financeira ausente');return res.sendStatus(503);}
+  if(!String(process.env.MP_WEBHOOK_SECRET||'').trim()){console.warn('[MAQON MP webhook] bloqueado: segredo webhook ausente');return res.sendStatus(503);}
+  if(!mpWebhookSignatureValid(req)){console.warn('[MAQON MP webhook] assinatura/requisicao invalida (sem dados sensiveis)');return res.sendStatus(401);}
   if(String(req.query.type||req.body?.type||'')!=='payment')return res.status(200).json({received:true,ignored:true});
   const id=String(req.query['data.id']);
   try{
     const token=String(process.env.MERCADOPAGO_ACCESS_TOKEN||'').trim();
-    if(!token.startsWith('TEST-'))return res.sendStatus(503);
+    if(!token.startsWith('TEST-')){console.warn('[MAQON MP webhook] token fora do padrao TEST-');return res.sendStatus(503);}
     const r=await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},signal:AbortSignal.timeout(10000)});
-    if(!r.ok)return res.sendStatus(503);
+    if(r.status===404){console.info('[MAQON MP webhook] ID nao encontrado na API; nenhuma cobranca alterada');return res.status(200).json({received:true,matched:false,reason:'payment_not_found'});}
+    if(!r.ok){console.warn('[MAQON MP webhook] consulta Mercado Pago falhou, HTTP',r.status);return res.sendStatus(503);}
     const payment=await r.json();
     const ref=String(payment.external_reference||'');
     if(!/^MAQON-HOMOLOG-[\da-f-]{36}$/i.test(ref))return res.status(200).json({received:true,ignored:true});
