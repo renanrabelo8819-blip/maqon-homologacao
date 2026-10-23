@@ -430,6 +430,44 @@ app.get('/api/mercadopago/financeiro-status',requireAdmin,async(req,res)=>{
   res.json({ok:true,mode:'homologacao',db_configured:financeConfigured(),webhook_secret_present:!!process.env.MP_WEBHOOK_SECRET,access_granted:false,subscriptions_enabled:false});
 });
 
+// MAQON V1.6.13.1 - cadastro ADMINISTRATIVO de contratação de teste.
+// Não expõe endpoints públicos de compra ou permissão; não aprova pagamentos.
+const CONTRACT_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function requireContractsAdmin(req,res,next){
+  const configured=String(process.env.MAQON_CONTRACTS_ADMIN_TOKEN||'');
+  const presented=String(req.get('X-MAQON-Contracts-Admin')||'');
+  if(configured.length<32 || !safeEqual(presented,configured))return res.status(401).json({error:'Operacao administrativa nao autorizada.'});
+  next();
+}
+app.get('/api/maqon/contratacoes/status',requireContractsAdmin,(req,res)=>{
+  res.set('Cache-Control','no-store');
+  res.json({version:'V1.6.13.1',mode:'homologacao',finance_configured:financeConfigured(),access_release_enabled:false,monthly_renewal_enabled:false,annual_renewal_enabled:false});
+});
+app.post('/api/maqon/contratacoes/rascunho',requireContractsAdmin,async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(String(process.env.MERCADOPAGO_ENV||'').trim().toLowerCase()!=='sandbox' || !financeConfigured())return res.status(503).json({error:'Somente homologacao configurada.'});
+  const {empresa_id,usuario_id,external_reference}=req.body||{};
+  if(!CONTRACT_UUID.test(String(empresa_id||'')) || !CONTRACT_UUID.test(String(usuario_id||''))
+     || !/^MAQON-HOMOLOG-[0-9a-f-]{36}$/i.test(String(external_reference||''))){
+    return res.status(400).json({error:'Identificadores invalidos.'});
+  }
+  try{
+    const found=await financeDb('maqon_pagamentos_homologacao?external_reference=eq.'+encodeURIComponent(external_reference)+'&select=external_reference,valor_centavos,moeda,tipo,status');
+    const row=found?.[0];
+    if(!row || row.tipo!=='servico_avulso' || row.moeda!=='BRL' || row.valor_centavos!==15000 || row.status!=='preference_created'){
+      return res.status(409).json({error:'Referencia financeira nao elegivel para rascunho.'});
+    }
+    const created=await financeDb('maqon_contratacoes?select=id,empresa_id,usuario_id,tipo,estado,acesso_liberado,pagamento_external_reference',{
+      method:'POST',prefer:'return=representation',body:{empresa_id,usuario_id,pagamento_external_reference:external_reference,
+        tipo:'servico_avulso',codigo_servico:'analise_tecnica_teste',valor_centavos:15000,moeda:'BRL',estado:'aguardando_pagamento',acesso_liberado:false}
+    });
+    return res.status(201).json({ok:true,contratacao:created?.[0],payment_approved:false,access_granted:false});
+  }catch(e){
+    console.warn('[MAQON contrato] falha controlada:',String(e.message).slice(0,100));
+    return res.status(409).json({error:'Nao foi possivel cadastrar contratacao. Verifique vinculo usuario/empresa, duplicidade e exposicao restrita da tabela na Data API.'});
+  }
+});
+
 // MAQON V1.6.12.2 - CHECKOUT DE TESTE, SOMENTE SERVICO AVULSO.
 // Checkout Pro por preferencia, como piloto isolado (nao e Checkout Bricks).
 // Nao ha webhook, nem liberacao de acesso, nem processamento de plano recorrente.
